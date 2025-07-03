@@ -1,0 +1,221 @@
+/* frontend/src/index.css */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Cores do tema */
+  --background-default: rgba(18, 18, 18, 0.6);
+  --background-paper: rgba(30, 30, 30, 1.0);
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --divider: rgba(255, 255, 255, 0.12);
+  
+  /* Cores de status */
+  --success-main: #02c076;
+  --error-main: #f84960;
+  
+  /* Cores de ação */
+  --primary-main: #1976d2;
+  --primary-dark: #115293;
+  --primary-light: #4791db;
+  
+  /* Espaçamento */
+  --spacing-unit: 8px;
+  --spacing-1: var(--spacing-unit);
+  --spacing-2: calc(var(--spacing-unit) * 2);
+  --spacing-3: calc(var(--spacing-unit) * 3);
+  --spacing-4: calc(var(--spacing-unit) * 4);
+  
+  /* Tipografia */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  --font-size-small: 0.875rem;
+  --font-size-medium: 1rem;
+  --font-size-large: 1.25rem;
+  
+  /* Bordas */
+  --border-radius: 4px;
+  --border-width: 1px;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--background-default);
+  color: var(--text-primary);
+  overflow-x: hidden;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Estilos globais */
+.MuiDialog-paper {
+  background-color: var(--background-paper) !important;
+  color: var(--text-primary) !important;
+}
+
+.MuiPaper-root {
+  background-color: var(--background-paper) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Estilo específico para o Paper do login com transparência */
+.MuiPaper-root.login-paper {
+  background: rgba(0, 0, 0, 0.15) !important;
+  backdrop-filter: blur(15px) !important;
+  border: 1px solid rgba(102, 255, 204, 0.08) !important;
+}
+
+.MuiTableCell-root {
+  color: var(--text-primary) !important;
+  border-bottom: var(--border-width) solid var(--divider) !important;
+}
+
+.MuiTableHead-root .MuiTableCell-root {
+  background-color: var(--background-paper) !important;
+  font-weight: 600 !important;
+}
+
+.MuiPaper-root {
+  background-color: var(--background-paper) !important;
+  color: var(--text-primary) !important;
+}
+
+.MuiChip-root {
+  font-weight: 600 !important;
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e2329;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #848e9c;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #f0b90b;
+}
+
+/* Animações */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Cores personalizadas */
+.text-green {
+  color: #02c076 !important;
+}
+
+.text-red {
+  color: #f84960 !important;
+}
+
+.text-yellow {
+  color: #f0b90b !important;
+}
+
+.bg-green {
+  background-color: #02c076 !important;
+}
+
+.bg-red {
+  background-color: #f84960 !important;
+}
+
+.bg-yellow {
+  background-color: #f0b90b !important;
+}
+
+/* Utilitários */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.no-select {
+  user-select: none;
+}
+
+/* Responsividade */
+@media (max-width: 600px) {
+  :root {
+    --spacing-unit: 4px;
+  }
+}
+
+@media (max-width: 768px) {
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  .hide-tablet {
+    display: none !important;
+  }
+}
+
+/* Força fundo preto sólido nos botões de assinatura e convite */
+.button-assinatura,
+.button-convite,
+.button-plano,
+.button-validar-codigo {
+  background: #000 !important;
+  color: #66FFCC !important;
+  border: 1.5px solid #66FFCC !important;
+  font-weight: 600 !important;
+  padding: 8px 24px !important;
+  border-radius: 8px !important;
+  text-transform: none !important;
+  font-size: 1.1rem !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.button-assinatura:hover,
+.button-convite:hover,
+.button-plano:hover,
+.button-validar-codigo:hover {
+  background: #222 !important;
+  color: #66FFCC !important;
+  border: 1.5px solid #66FFCC !important;
+}
+
+/* Força fundo preto sólido nos botões dos modais de assinatura e convite */
+.MuiDialog-root .MuiButton-contained {
+  background: #000 !important;
+  color: #66FFCC !important;
+  border: 1.5px solid #66FFCC !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+.MuiDialog-root .MuiButton-contained:hover {
+  background: #222 !important;
+  color: #66FFCC !important;
+  border: 1.5px solid #66FFCC !important;
+}

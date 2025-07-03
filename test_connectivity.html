@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Conectividade - Nautilus</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .loading { background-color: #cce7ff; color: #004085; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Teste de Conectividade - Nautilus Automação</h1>
+    
+    <div class="test-container">
+        <h2>1. Teste de Health Check do Backend</h2>
+        <button onclick="testBackendHealth()">Testar Backend</button>
+        <div id="backend-status"></div>
+    </div>
+    
+    <div class="test-container">
+        <h2>2. Teste de Login</h2>
+        <input type="email" id="email" placeholder="Email" value="admin@bigwhale.com">
+        <input type="password" id="password" placeholder="Senha" value="Raikamaster1@">
+        <button onclick="testLogin()">Testar Login</button>
+        <div id="login-status"></div>
+    </div>
+    
+    <div class="test-container">
+        <h2>3. Teste de CORS</h2>
+        <button onclick="testCORS()">Testar CORS</button>
+        <div id="cors-status"></div>
+    </div>
+    
+    <div class="test-container">
+        <h2>4. Informações do Sistema</h2>
+        <div id="system-info">
+            <p><strong>URL do Frontend:</strong> <span id="frontend-url"></span></p>
+            <p><strong>URL do Backend:</strong> https://bigwhale-backend.onrender.com</p>
+            <p><strong>User Agent:</strong> <span id="user-agent"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // Configurações
+        const BACKEND_URL = 'https://bigwhale-backend.onrender.com';
+        
+        // Atualizar informações do sistema
+        document.getElementById('frontend-url').textContent = window.location.origin;
+        document.getElementById('user-agent').textContent = navigator.userAgent;
+        
+        function showStatus(elementId, message, type = 'loading') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        function showResult(elementId, data, type = 'success') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `
+                <div class="status ${type}">
+                    <strong>Resultado:</strong><br>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                </div>
+            `;
+        }
+        
+        async function testBackendHealth() {
+            showStatus('backend-status', '🔄 Testando conexão com o backend...');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/health`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('backend-status', {
+                        status: 'SUCCESS',
+                        statusCode: response.status,
+                        data: data
+                    }, 'success');
+                } else {
+                    showResult('backend-status', {
+                        status: 'ERROR',
+                        statusCode: response.status,
+                        statusText: response.statusText
+                    }, 'error');
+                }
+            } catch (error) {
+                showResult('backend-status', {
+                    status: 'NETWORK_ERROR',
+                    error: error.message,
+                    details: 'Não foi possível conectar ao backend'
+                }, 'error');
+            }
+        }
+        
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showStatus('login-status', '❌ Por favor, preencha email e senha', 'error');
+                return;
+            }
+            
+            showStatus('login-status', '🔄 Testando login...');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('login-status', {
+                        status: 'LOGIN_SUCCESS',
+                        statusCode: response.status,
+                        data: data
+                    }, 'success');
+                } else {
+                    showResult('login-status', {
+                        status: 'LOGIN_FAILED',
+                        statusCode: response.status,
+                        error: data
+                    }, 'error');
+                }
+            } catch (error) {
+                showResult('login-status', {
+                    status: 'NETWORK_ERROR',
+                    error: error.message
+                }, 'error');
+            }
+        }
+        
+        async function testCORS() {
+            showStatus('cors-status', '🔄 Testando CORS...');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/test`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Origin': window.location.origin
+                    }
+                });
+                
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods')
+                };
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('cors-status', {
+                        status: 'CORS_OK',
+                        statusCode: response.status,
+                        corsHeaders: corsHeaders,
+                        data: data
+                    }, 'success');
+                } else {
+                    showResult('cors-status', {
+                        status: 'CORS_ERROR',
+                        statusCode: response.status,
+                        corsHeaders: corsHeaders
+                    }, 'error');
+                }
+            } catch (error) {
+                showResult('cors-status', {
+                    status: 'CORS_BLOCKED',
+                    error: error.message,
+                    details: 'CORS pode estar bloqueando a requisição'
+                }, 'error');
+            }
+        }
+        
+        // Executar teste automático ao carregar a página
+        window.onload = function() {
+            setTimeout(() => {
+                testBackendHealth();
+            }, 1000);
+        };
+    </script>
+</body>
+</html>
