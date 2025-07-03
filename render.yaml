@@ -2,6 +2,7 @@ services:
   - type: web
     name: bigwhale-backend-fixed
     env: python
+    runtime: python3.11
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT app:application
