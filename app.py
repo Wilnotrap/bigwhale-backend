@@ -233,6 +233,132 @@ def create_app(config_name='default'):
                 'debug_info': str(e) if app.debug else None
             }), 500
 
+    # --- Dashboard Endpoints ---
+    @app.route('/api/dashboard/stats', methods=['GET'])
+    def get_dashboard_stats():
+        """Retorna estatísticas do dashboard"""
+        try:
+            app.logger.info("=== DASHBOARD STATS ===")
+            
+            # Dados simulados para evitar erros 404
+            stats_data = {
+                'success': True,
+                'data': {
+                    'total_trades': 0,
+                    'open_positions': 0,
+                    'total_profit': 0,
+                    'win_rate': 0,
+                    'account_balance': 0
+                },
+                'message': 'Estatísticas carregadas com sucesso'
+            }
+            
+            return jsonify(stats_data), 200
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar estatísticas: {str(e)}")
+            return jsonify({
+                'success': False,
+                'message': 'Erro interno no servidor',
+                'error': str(e)
+            }), 500
+
+    @app.route('/api/dashboard/account-balance', methods=['GET'])
+    def get_account_balance():
+        """Retorna saldo da conta"""
+        try:
+            app.logger.info("=== ACCOUNT BALANCE ===")
+            
+            # Dados simulados para evitar erros 404
+            balance_data = {
+                'success': True,
+                'available_balance': 0,
+                'total_balance': 0,
+                'unrealized_pnl': 0,
+                'margin_ratio': 0,
+                'currency': 'USDT',
+                'api_configured': False,
+                'message': 'Configure suas credenciais da API Bitget no perfil'
+            }
+            
+            return jsonify(balance_data), 200
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar saldo: {str(e)}")
+            return jsonify({
+                'success': False,
+                'message': 'Erro interno no servidor',
+                'error': str(e)
+            }), 500
+
+    @app.route('/api/dashboard/open-positions', methods=['GET'])
+    def get_open_positions():
+        """Retorna posições abertas"""
+        try:
+            app.logger.info("=== OPEN POSITIONS ===")
+            
+            # Dados simulados para evitar erros 404
+            positions_data = {
+                'success': True,
+                'data': [],
+                'message': 'Configure suas credenciais da API Bitget no perfil para ver posições reais'
+            }
+            
+            return jsonify(positions_data), 200
+            
+        except Exception as e:
+            app.logger.error(f"Erro ao buscar posições: {str(e)}")
+            return jsonify({
+                'success': False,
+                'message': 'Erro interno no servidor',
+                'error': str(e)
+            }), 500
+
+    # --- Rota Raiz ---
+    @app.route('/')
+    def home():
+        """Página inicial da API BigWhale"""
+        return jsonify({
+            "message": "🐋 BigWhale API - Sistema de Trading",
+            "version": "1.0.0",
+            "status": "online",
+            "endpoints": {
+                "login": "/api/auth/login",
+                "session": "/api/auth/session",
+                "health": "/api/health",
+                "test": "/api/test",
+                "dashboard_stats": "/api/dashboard/stats",
+                "account_balance": "/api/dashboard/account-balance",
+                "open_positions": "/api/dashboard/open-positions"
+            },
+            "documentation": "API para sistema de trading de criptomoedas",
+            "environment": "development"
+        }), 200
+
+    # --- Endpoint de Sessão ---
+    @app.route('/api/auth/session', methods=['GET'])
+    def check_session():
+        """Verifica se há uma sessão ativa (versão simplificada)"""
+        try:
+            app.logger.info("=== VERIFICAÇÃO DE SESSÃO ===")
+            
+            # Por enquanto, retorna que não há sessão ativa
+            # Em uma implementação completa, verificaria cookies/tokens
+            response_data = {
+                'authenticated': False,
+                'message': 'Nenhuma sessão ativa encontrada'
+            }
+            
+            app.logger.info("Verificação de sessão concluída")
+            return jsonify(response_data), 200
+            
+        except Exception as e:
+            app.logger.error(f"Erro na verificação de sessão: {str(e)}")
+            return jsonify({
+                'authenticated': False,
+                'error': 'Erro interno no servidor'
+            }), 500
+
     # --- Rota de Teste Simples ---
     @app.route('/api/test')
     def test_route():

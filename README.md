@@ -1,52 +1,51 @@
-# 🐋 BigWhale Backend - Nautilus Trading Platform
+# Backend Corrigido - Nautilus
 
-## 🚀 Deploy Automático no Render
+## 🚀 Deploy no Render
 
-Este é o backend corrigido e otimizado do Nautilus, pronto para deploy no Render.
+Este backend foi corrigido para resolver o erro 500 no login. As principais correções incluem:
 
-### ✅ Estrutura do Projeto
+### ✅ Correções Implementadas
 
-```
-backend_github/
-├── .gitignore          # Arquivos ignorados pelo Git
-├── app.py              # Aplicação Flask principal
-├── database.py         # Configuração do SQLAlchemy
-├── requirements.txt    # Dependências Python
-├── render.yaml         # Configuração do Render
-├── models/
-│   ├── __init__.py
-│   └── user.py         # Modelo de usuário
-└── README.md           # Este arquivo
-```
+1. **Simplificação do endpoint de login** - Removida complexidade desnecessária
+2. **Melhor tratamento de erros** - Logs detalhados para debugging
+3. **Configuração de CORS otimizada** - Suporte adequado para frontend
+4. **Criação automática de usuários admin** - Garantia de credenciais válidas
+5. **Health check endpoint** - Monitoramento da aplicação
 
-### 🔧 Configuração no Render
+### 📋 Instruções para Deploy
 
-1. **Conecte este repositório** ao Render
-2. **Configure as variáveis de ambiente**:
-   ```
-   FLASK_SECRET_KEY=sua_chave_secreta_aqui
-   AES_ENCRYPTION_KEY=sua_chave_32_bytes_aqui
-   FLASK_ENV=production
-   RENDER=true
-   ```
+1. **Faça upload dos arquivos** para um repositório Git
+2. **Configure o Render** usando o arquivo `render.yaml` incluído
+3. **Defina as variáveis de ambiente** no painel do Render:
+   - `FLASK_SECRET_KEY`: Uma chave secreta forte
+   - `AES_ENCRYPTION_KEY`: Chave de 32 bytes para criptografia
+   - `FLASK_ENV`: production
+   - `RENDER`: true
 
-### 🔑 Credenciais de Admin
+### 🔑 Credenciais de Teste
 
-O sistema criará automaticamente estes usuários:
+O sistema criará automaticamente estes usuários admin:
 
-- **Email**: `admin@bigwhale.com`  
-  **Senha**: `Raikamaster1@`
+- **Email**: admin@bigwhale.com  
+  **Senha**: Raikamaster1@
 
-- **Email**: `willian@lexxusadm.com.br`  
-  **Senha**: `Bigwhale202021@`
+- **Email**: willian@lexxusadm.com.br  
+  **Senha**: Bigwhale202021@
 
-### 📡 Endpoints da API
+### 🛠️ Endpoints Disponíveis
 
-- `GET /api/health` - Health check do sistema
-- `POST /api/auth/login` - Autenticação de usuários
+- `GET /api/health` - Health check
+- `POST /api/auth/login` - Login de usuários
 - `GET /api/test` - Endpoint de teste
 
-### 🛠️ Desenvolvimento Local
+### 📊 Logs e Debugging
+
+O sistema inclui logs detalhados para facilitar o debugging:
+- Logs de inicialização
+- Logs de tentativas de login
+- Logs de erros com stack trace
+
+### 🔧 Desenvolvimento Local
 
 ```bash
 # Instalar dependências
@@ -56,24 +55,16 @@ pip install -r requirements.txt
 python app.py
 ```
 
-### 🔍 Logs e Debugging
+O servidor estará disponível em `http://localhost:5000`
 
-O sistema inclui logs detalhados para facilitar o debugging:
-- ✅ Logs de inicialização
-- ✅ Logs de tentativas de login
-- ✅ Logs de erros com stack trace
-- ✅ Health check com contagem de usuários
+### 📝 Notas Importantes
 
-### 🎯 Principais Correções
-
-1. **Endpoint de login simplificado** - Removida complexidade desnecessária
-2. **Criação automática de usuários admin** - Garantia de credenciais válidas
-3. **Configuração de banco otimizada** - SQLite com criação automática
-4. **CORS configurado** - Suporte adequado para frontend
-5. **Health check robusto** - Monitoramento da aplicação
+- O banco SQLite será criado automaticamente
+- As credenciais admin são configuradas na inicialização
+- O sistema é compatível com o frontend existente
+- Todos os endpoints retornam JSON válido
 
 ---
 
-**Status**: ✅ Testado e funcionando  
-**Deploy**: ✅ Pronto para produção  
-**Compatibilidade**: ✅ Frontend existente
+**Status**: ✅ Testado e funcionando localmente  
+**Pronto para deploy**: ✅ Sim
