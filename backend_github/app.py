@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Backend Flask Corrigido - Sistema Bitget
-Versão corrigida para resolver erro 500 no login
+Backend Flask Definitivo - Sistema Bitget
+Versão para deploy no Render.com
 """
 
 import os
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 from database import db
@@ -57,11 +57,7 @@ def create_app(config_name='default'):
     if os.environ.get('RENDER'):
         db_path = '/tmp/site.db'
     else:
-        # Criar diretório instance se não existir
-        instance_dir = os.path.join(os.path.dirname(__file__), 'instance')
-        if not os.path.exists(instance_dir):
-            os.makedirs(instance_dir, exist_ok=True)
-        db_path = os.path.join(instance_dir, 'site.db')
+        db_path = os.path.join(os.getcwd(), 'instance', 'site.db')
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
@@ -83,12 +79,50 @@ def create_app(config_name='default'):
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
     db.init_app(app)
     
+    # Configurar Flask-Session com configurações mais simples
+    try:
+        app.config['SESSION_TYPE'] = 'filesystem'
+        app.config['SESSION_PERMANENT'] = False
+        app.config['SESSION_USE_SIGNER'] = True
+        app.config['SESSION_KEY_PREFIX'] = 'bigwhale:'
+        app.config['SESSION_FILE_DIR'] = os.path.join(app.instance_path, 'flask_session')
+        app.config['SESSION_FILE_THRESHOLD'] = 500
+        app.config['SESSION_FILE_MODE'] = 384
+        app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+        
+        # Garantir que o diretório de sessão existe
+        session_dir = app.config['SESSION_FILE_DIR']
+        if not os.path.exists(session_dir):
+            os.makedirs(session_dir, exist_ok=True)
+            app.logger.info(f"Diretório de sessão criado: {session_dir}")
+        
+        # Inicializar Flask-Session
+        from flask_session import Session
+        Session(app)
+        app.logger.info("Flask-Session inicializado com sucesso")
+        
+    except Exception as session_error:
+        app.logger.error(f"Erro ao configurar Flask-Session: {str(session_error)}")
+        # Continuar sem Flask-Session se houver erro
+        app.config['SESSION_TYPE'] = 'null'
+    
     # --- Função para garantir credenciais de admin ---
     def ensure_admin_credentials():
         """Garante que as credenciais de admin estejam corretas na inicialização"""
         try:
+            # Importar aqui para evitar problemas de importação circular
             from models.user import User
             from werkzeug.security import generate_password_hash
+            
+            # Verificar se a tabela users existe antes de tentar acessá-la
+            try:
+                # Teste rápido para ver se a tabela existe
+                User.query.first()
+            except Exception as table_error:
+                app.logger.warning(f"Tabela users não encontrada, criando: {table_error}")
+                # Forçar criação da tabela se não existir
+                db.create_all()
+                app.logger.info("Tabelas recriadas após erro")
             
             # Credenciais padrão
             admin_users = [
@@ -107,262 +141,96 @@ def create_app(config_name='default'):
             ]
             
             for admin_data in admin_users:
-                user = User.query.filter_by(email=admin_data['email']).first()
-                
-                if user:
-                    # Atualizar senha e status de admin se necessário
-                    if not user.check_password(admin_data['password']):
-                        user.password_hash = generate_password_hash(admin_data['password'])
-                        user.is_active = True
-                        app.logger.info(f"Credenciais atualizadas para {admin_data['email']}")
+                try:
+                    user = User.query.filter_by(email=admin_data['email']).first()
                     
-                    # Garantir que o status de admin esteja correto
-                    if user.is_admin != admin_data['is_admin']:
-                        user.is_admin = admin_data['is_admin']
-                        app.logger.info(f"Status de admin atualizado para {admin_data['email']}: {admin_data['is_admin']}")
-                else:
-                    # Criar usuário se não existir
-                    user = User(
-                        full_name=admin_data['full_name'],
-                        email=admin_data['email'],
-                        password_hash=generate_password_hash(admin_data['password']),
-                        is_active=True,
-                        is_admin=admin_data['is_admin']
-                    )
-                    db.session.add(user)
-                    app.logger.info(f"Usuário {admin_data['email']} criado")
+                    if user:
+                        # Atualizar senha e status de admin se necessário
+                        if not user.check_password(admin_data['password']):
+                            user.password_hash = generate_password_hash(admin_data['password'])
+                            user.is_active = True
+                            app.logger.info(f"Credenciais atualizadas para {admin_data['email']}")
+                        
+                        # Garantir que o status de admin esteja correto
+                        if user.is_admin != admin_data['is_admin']:
+                            user.is_admin = admin_data['is_admin']
+                            app.logger.info(f"Status de admin atualizado para {admin_data['email']}: {admin_data['is_admin']}")
+                    else:
+                        # Criar usuário se não existir
+                        user = User(
+                            full_name=admin_data['full_name'],
+                            email=admin_data['email'],
+                            password_hash=generate_password_hash(admin_data['password']),
+                            is_active=True,
+                            is_admin=admin_data['is_admin']
+                        )
+                        db.session.add(user)
+                        app.logger.info(f"Usuário {admin_data['email']} criado")
+                except Exception as user_error:
+                    app.logger.error(f"Erro ao processar usuário {admin_data['email']}: {user_error}")
+                    continue
             
-            db.session.commit()
-            app.logger.info("Credenciais de admin configuradas com sucesso")
+            try:
+                db.session.commit()
+                app.logger.info("Credenciais de admin configuradas com sucesso")
+            except Exception as commit_error:
+                db.session.rollback()
+                app.logger.error(f"Erro ao salvar credenciais: {commit_error}")
             
         except Exception as e:
             app.logger.error(f"Erro ao configurar credenciais de admin: {e}")
+            # Não interromper a inicialização por causa disso
     
-    # --- Login Simplificado ---
-    @app.route('/api/auth/login', methods=['POST'])
-    def login_simple():
-        """Endpoint de login simplificado sem dependências complexas"""
-        try:
-            app.logger.info("=== INÍCIO DO LOGIN SIMPLIFICADO ===")
-            
-            # Verificar se a requisição contém JSON
-            if not request.is_json:
-                app.logger.error("Requisição não contém JSON válido")
-                return jsonify({'message': 'Content-Type deve ser application/json'}), 400
-                
-            data = request.get_json()
-            if not data:
-                app.logger.error("Dados JSON vazios ou inválidos")
-                return jsonify({'message': 'Dados JSON inválidos'}), 400
-                
-            app.logger.info(f"Dados recebidos: {list(data.keys()) if data else 'None'}")
-            
-            email = data.get('email')
-            password = data.get('password')
+    # --- Registro de Blueprints (Rotas da API) ---
+    # Importar blueprints aqui dentro para evitar importação circular
+    from auth.routes import auth_bp
+    from api.dashboard import dashboard_bp
+    from api.admin import admin_bp
 
-            if not email or not password:
-                app.logger.warning(f"Campos obrigatórios ausentes - Email: {bool(email)}, Password: {bool(password)}")
-                return jsonify({'message': 'Email e senha são obrigatórios'}), 400
-
-            app.logger.info(f"Tentativa de login para email: {email}")
-            
-            # Buscar usuário no banco
-            try:
-                from models.user import User
-                user = User.query.filter_by(email=email).first()
-                app.logger.info(f"Usuário encontrado: {bool(user)}")
-            except Exception as db_error:
-                app.logger.error(f"Erro ao buscar usuário no banco: {str(db_error)}")
-                return jsonify({'message': 'Erro interno no servidor - banco de dados'}), 500
-
-            if not user:
-                app.logger.warning(f"Usuário não encontrado: {email}")
-                return jsonify({'message': 'Email ou senha inválidos'}), 401
-                
-            # Verificar senha
-            try:
-                password_valid = user.check_password(password)
-                app.logger.info(f"Senha válida: {password_valid}")
-            except Exception as pwd_error:
-                app.logger.error(f"Erro ao verificar senha: {str(pwd_error)}")
-                return jsonify({'message': 'Erro interno no servidor - autenticação'}), 500
-                
-            if not password_valid:
-                app.logger.warning(f"Senha inválida para usuário: {email}")
-                return jsonify({'message': 'Email ou senha inválidos'}), 401
-
-            if not user.is_active:
-                app.logger.warning(f"Usuário inativo: {email}")
-                return jsonify({'message': 'Conta desativada. Entre em contato com o suporte.'}), 403
-
-            app.logger.info("Credenciais validadas com sucesso")
-            
-            # Preparar resposta simplificada (sem sessões complexas)
-            response_data = {
-                'message': 'Login realizado com sucesso',
-                'status': 'success',
-                'user': {
-                    'id': user.id,
-                    'email': user.email,
-                    'full_name': user.full_name,
-                    'is_admin': user.is_admin,
-                    'is_active': user.is_active
-                }
-            }
-            
-            app.logger.info("=== LOGIN SIMPLIFICADO CONCLUÍDO COM SUCESSO ===")
-            return jsonify(response_data), 200
-            
-        except Exception as e:
-            app.logger.error("=== ERRO CRÍTICO NO LOGIN SIMPLIFICADO ===")
-            app.logger.error(f"Tipo do erro: {type(e).__name__}")
-            app.logger.error(f"Mensagem: {str(e)}")
-            
-            # Log do traceback completo
-            import traceback
-            app.logger.error(f"Traceback: {traceback.format_exc()}")
-            
-            try:
-                db.session.rollback()
-            except:
-                pass
-                
-            return jsonify({
-                'message': 'Erro interno no servidor',
-                'error_type': type(e).__name__,
-                'debug_info': str(e) if app.debug else None
-            }), 500
-
-    # --- Dashboard Endpoints ---
-    @app.route('/api/dashboard/stats', methods=['GET'])
-    def get_dashboard_stats():
-        """Retorna estatísticas do dashboard"""
-        try:
-            app.logger.info("=== DASHBOARD STATS ===")
-            
-            # Dados simulados para evitar erros 404
-            stats_data = {
-                'success': True,
-                'data': {
-                    'total_trades': 0,
-                    'open_positions': 0,
-                    'total_profit': 0,
-                    'win_rate': 0,
-                    'account_balance': 0
-                },
-                'message': 'Estatísticas carregadas com sucesso'
-            }
-            
-            return jsonify(stats_data), 200
-            
-        except Exception as e:
-            app.logger.error(f"Erro ao buscar estatísticas: {str(e)}")
-            return jsonify({
-                'success': False,
-                'message': 'Erro interno no servidor',
-                'error': str(e)
-            }), 500
-
-    @app.route('/api/dashboard/account-balance', methods=['GET'])
-    def get_account_balance():
-        """Retorna saldo da conta"""
-        try:
-            app.logger.info("=== ACCOUNT BALANCE ===")
-            
-            # Dados simulados para evitar erros 404
-            balance_data = {
-                'success': True,
-                'available_balance': 0,
-                'total_balance': 0,
-                'unrealized_pnl': 0,
-                'margin_ratio': 0,
-                'currency': 'USDT',
-                'api_configured': False,
-                'message': 'Configure suas credenciais da API Bitget no perfil'
-            }
-            
-            return jsonify(balance_data), 200
-            
-        except Exception as e:
-            app.logger.error(f"Erro ao buscar saldo: {str(e)}")
-            return jsonify({
-                'success': False,
-                'message': 'Erro interno no servidor',
-                'error': str(e)
-            }), 500
-
-    @app.route('/api/dashboard/open-positions', methods=['GET'])
-    def get_open_positions():
-        """Retorna posições abertas"""
-        try:
-            app.logger.info("=== OPEN POSITIONS ===")
-            
-            # Dados simulados para evitar erros 404
-            positions_data = {
-                'success': True,
-                'data': [],
-                'message': 'Configure suas credenciais da API Bitget no perfil para ver posições reais'
-            }
-            
-            return jsonify(positions_data), 200
-            
-        except Exception as e:
-            app.logger.error(f"Erro ao buscar posições: {str(e)}")
-            return jsonify({
-                'success': False,
-                'message': 'Erro interno no servidor',
-                'error': str(e)
-            }), 500
-
-    # --- Rota Raiz ---
-    @app.route('/')
-    def home():
-        """Página inicial da API BigWhale"""
-        return jsonify({
-            "message": "🐋 BigWhale API - Sistema de Trading",
-            "version": "1.0.0",
-            "status": "online",
-            "endpoints": {
-                "login": "/api/auth/login",
-                "session": "/api/auth/session",
-                "health": "/api/health",
-                "test": "/api/test",
-                "dashboard_stats": "/api/dashboard/stats",
-                "account_balance": "/api/dashboard/account-balance",
-                "open_positions": "/api/dashboard/open-positions"
-            },
-            "documentation": "API para sistema de trading de criptomoedas",
-            "environment": "development"
-        }), 200
-
-    # --- Endpoint de Sessão ---
-    @app.route('/api/auth/session', methods=['GET'])
-    def check_session():
-        """Verifica se há uma sessão ativa (versão simplificada)"""
-        try:
-            app.logger.info("=== VERIFICAÇÃO DE SESSÃO ===")
-            
-            # Por enquanto, retorna que não há sessão ativa
-            # Em uma implementação completa, verificaria cookies/tokens
-            response_data = {
-                'authenticated': False,
-                'message': 'Nenhuma sessão ativa encontrada'
-            }
-            
-            app.logger.info("Verificação de sessão concluída")
-            return jsonify(response_data), 200
-            
-        except Exception as e:
-            app.logger.error(f"Erro na verificação de sessão: {str(e)}")
-            return jsonify({
-                'authenticated': False,
-                'error': 'Erro interno no servidor'
-            }), 500
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
 
     # --- Rota de Teste Simples ---
     @app.route('/api/test')
     def test_route():
         return jsonify({"message": "Backend BigWhale funcionando no Render!", "environment": "Render"}), 200
+
+    # --- Rota para Inicializar Banco de Dados ---
+    @app.route('/api/init-database')
+    def init_database():
+        """Endpoint para forçar a inicialização do banco de dados"""
+        try:
+            app.logger.info("=== INICIALIZAÇÃO FORÇADA DO BANCO ===")
+            
+            # Forçar criação das tabelas
+            db.create_all()
+            app.logger.info("Tabelas criadas com sucesso")
+            
+            # Garantir credenciais de admin
+            ensure_admin_credentials()
+            
+            # Verificar se funcionou
+            from models.user import User
+            user_count = User.query.count()
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Banco de dados inicializado com sucesso',
+                'users_count': user_count,
+                'timestamp': datetime.now().isoformat()
+            }), 200
+            
+        except Exception as e:
+            app.logger.error(f"Erro na inicialização: {str(e)}")
+            import traceback
+            app.logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            return jsonify({
+                'status': 'error',
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }), 500
 
     # --- Rota de Health Check ---
     @app.route('/api/health')
@@ -390,6 +258,32 @@ def create_app(config_name='default'):
                 health_data['database'] = 'error'
                 health_data['database_error'] = str(db_error)
             
+            # Verificar configurações críticas
+            try:
+                secret_key_ok = bool(app.config.get('SECRET_KEY'))
+                aes_key_ok = bool(app.config.get('AES_ENCRYPTION_KEY'))
+                
+                health_data['config'] = {
+                    'secret_key': secret_key_ok,
+                    'aes_encryption_key': aes_key_ok
+                }
+                
+                app.logger.info(f"Configurações - Secret Key: {secret_key_ok}, AES Key: {aes_key_ok}")
+            except Exception as config_error:
+                app.logger.error(f"Erro nas configurações: {str(config_error)}")
+                health_data['config_error'] = str(config_error)
+            
+            # Verificar importações críticas
+            try:
+                from utils.security import encrypt_api_key, decrypt_api_key
+                from models.session import UserSession
+                health_data['imports'] = 'ok'
+                app.logger.info("Importações críticas verificadas")
+            except Exception as import_error:
+                app.logger.error(f"Erro nas importações: {str(import_error)}")
+                health_data['imports'] = 'error'
+                health_data['import_error'] = str(import_error)
+            
             app.logger.info("=== HEALTH CHECK CONCLUÍDO ===")
             return jsonify(health_data), 200
             
@@ -409,12 +303,65 @@ def create_app(config_name='default'):
     # --- Criação do Banco de Dados ---
     with app.app_context():
         try:
+            app.logger.info("=== INICIANDO CRIAÇÃO DO BANCO DE DADOS ===")
+            
+            # Garantir que o diretório do banco existe
+            db_uri = app.config['SQLALCHEMY_DATABASE_URI']
+            app.logger.info(f"URI do banco: {db_uri}")
+            
+            if db_uri.startswith('sqlite:///'):
+                db_path = db_uri.replace('sqlite:///', '')
+                db_dir = os.path.dirname(db_path)
+                if db_dir and not os.path.exists(db_dir):
+                    os.makedirs(db_dir, exist_ok=True)
+                    app.logger.info(f"Diretório do banco criado: {db_dir}")
+                app.logger.info(f"Caminho do banco SQLite: {db_path}")
+            
+            # Importar todos os modelos antes de criar as tabelas
+            try:
+                from models.user import User
+                from models.session import UserSession
+                from models.trade import Trade
+                app.logger.info("Modelos importados com sucesso")
+            except Exception as import_error:
+                app.logger.error(f"Erro ao importar modelos: {import_error}")
+            
+            # Criar todas as tabelas
             db.create_all()
+            app.logger.info("✅ Tabelas do banco de dados SQLite verificadas/criadas com sucesso!")
             print(f"✅ Tabelas do banco de dados SQLite verificadas/criadas com sucesso!")
+            
+            # Verificar se as tabelas foram realmente criadas
+            try:
+                inspector = db.inspect(db.engine)
+                tables = inspector.get_table_names()
+                app.logger.info(f"Tabelas encontradas no banco: {tables}")
+                
+                if 'users' in tables:
+                    app.logger.info("✅ Tabela 'users' confirmada")
+                else:
+                    app.logger.warning("⚠️ Tabela 'users' não encontrada")
+                    
+            except Exception as inspect_error:
+                app.logger.error(f"Erro ao inspecionar banco: {inspect_error}")
+            
+            # Aguardar um pouco para garantir que as tabelas foram criadas
+            import time
+            time.sleep(0.5)
+            
             # Garantir credenciais de admin
+            app.logger.info("Iniciando configuração de credenciais de admin...")
             ensure_admin_credentials()
+            
+            app.logger.info("=== CRIAÇÃO DO BANCO DE DADOS CONCLUÍDA ===")
+            
         except Exception as e:
+            app.logger.error(f"❌ Erro ao criar tabelas SQLite: {e}")
             print(f"❌ Erro ao criar tabelas SQLite: {e}")
+            import traceback
+            app.logger.error(f"Traceback: {traceback.format_exc()}")
+            # Continuar mesmo com erro para que o servidor rode
+            pass
 
     return app
 
