@@ -110,8 +110,19 @@ def create_app(config_name='default'):
     def ensure_admin_credentials():
         """Garante que as credenciais de admin estejam corretas na inicialização"""
         try:
+            # Importar aqui para evitar problemas de importação circular
             from models.user import User
             from werkzeug.security import generate_password_hash
+            
+            # Verificar se a tabela users existe antes de tentar acessá-la
+            try:
+                # Teste rápido para ver se a tabela existe
+                User.query.first()
+            except Exception as table_error:
+                app.logger.warning(f"Tabela users não encontrada, criando: {table_error}")
+                # Forçar criação da tabela se não existir
+                db.create_all()
+                app.logger.info("Tabelas recriadas após erro")
             
             # Credenciais padrão
             admin_users = [
@@ -130,36 +141,45 @@ def create_app(config_name='default'):
             ]
             
             for admin_data in admin_users:
-                user = User.query.filter_by(email=admin_data['email']).first()
-                
-                if user:
-                    # Atualizar senha e status de admin se necessário
-                    if not user.check_password(admin_data['password']):
-                        user.password_hash = generate_password_hash(admin_data['password'])
-                        user.is_active = True
-                        app.logger.info(f"Credenciais atualizadas para {admin_data['email']}")
+                try:
+                    user = User.query.filter_by(email=admin_data['email']).first()
                     
-                    # Garantir que o status de admin esteja correto
-                    if user.is_admin != admin_data['is_admin']:
-                        user.is_admin = admin_data['is_admin']
-                        app.logger.info(f"Status de admin atualizado para {admin_data['email']}: {admin_data['is_admin']}")
-                else:
-                    # Criar usuário se não existir
-                    user = User(
-                        full_name=admin_data['full_name'],
-                        email=admin_data['email'],
-                        password_hash=generate_password_hash(admin_data['password']),
-                        is_active=True,
-                        is_admin=admin_data['is_admin']
-                    )
-                    db.session.add(user)
-                    app.logger.info(f"Usuário {admin_data['email']} criado")
+                    if user:
+                        # Atualizar senha e status de admin se necessário
+                        if not user.check_password(admin_data['password']):
+                            user.password_hash = generate_password_hash(admin_data['password'])
+                            user.is_active = True
+                            app.logger.info(f"Credenciais atualizadas para {admin_data['email']}")
+                        
+                        # Garantir que o status de admin esteja correto
+                        if user.is_admin != admin_data['is_admin']:
+                            user.is_admin = admin_data['is_admin']
+                            app.logger.info(f"Status de admin atualizado para {admin_data['email']}: {admin_data['is_admin']}")
+                    else:
+                        # Criar usuário se não existir
+                        user = User(
+                            full_name=admin_data['full_name'],
+                            email=admin_data['email'],
+                            password_hash=generate_password_hash(admin_data['password']),
+                            is_active=True,
+                            is_admin=admin_data['is_admin']
+                        )
+                        db.session.add(user)
+                        app.logger.info(f"Usuário {admin_data['email']} criado")
+                except Exception as user_error:
+                    app.logger.error(f"Erro ao processar usuário {admin_data['email']}: {user_error}")
+                    continue
             
-            db.session.commit()
-            app.logger.info("Credenciais de admin configuradas com sucesso")
+            try:
+                db.session.commit()
+                app.logger.info("Credenciais de admin configuradas com sucesso")
+            except Exception as commit_error:
+                db.session.rollback()
+                app.logger.error(f"Erro ao salvar credenciais: {commit_error}")
             
         except Exception as e:
             app.logger.error(f"Erro ao configurar credenciais de admin: {e}")
+            # Não interromper a inicialização por causa disso
     
     # --- Registro de Blueprints (Rotas da API) ---
     # Importar blueprints aqui dentro para evitar importação circular
@@ -283,23 +303,63 @@ def create_app(config_name='default'):
     # --- Criação do Banco de Dados ---
     with app.app_context():
         try:
+            app.logger.info("=== INICIANDO CRIAÇÃO DO BANCO DE DADOS ===")
+            
             # Garantir que o diretório do banco existe
-            db_dir = os.path.dirname(app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', ''))
-            if db_dir and not os.path.exists(db_dir):
-                os.makedirs(db_dir, exist_ok=True)
-                app.logger.info(f"Diretório do banco criado: {db_dir}")
+            db_uri = app.config['SQLALCHEMY_DATABASE_URI']
+            app.logger.info(f"URI do banco: {db_uri}")
+            
+            if db_uri.startswith('sqlite:///'):
+                db_path = db_uri.replace('sqlite:///', '')
+                db_dir = os.path.dirname(db_path)
+                if db_dir and not os.path.exists(db_dir):
+                    os.makedirs(db_dir, exist_ok=True)
+                    app.logger.info(f"Diretório do banco criado: {db_dir}")
+                app.logger.info(f"Caminho do banco SQLite: {db_path}")
+            
+            # Importar todos os modelos antes de criar as tabelas
+            try:
+                from models.user import User
+                from models.session import UserSession
+                from models.trade import Trade
+                app.logger.info("Modelos importados com sucesso")
+            except Exception as import_error:
+                app.logger.error(f"Erro ao importar modelos: {import_error}")
             
             # Criar todas as tabelas
             db.create_all()
             app.logger.info("✅ Tabelas do banco de dados SQLite verificadas/criadas com sucesso!")
             print(f"✅ Tabelas do banco de dados SQLite verificadas/criadas com sucesso!")
             
+            # Verificar se as tabelas foram realmente criadas
+            try:
+                inspector = db.inspect(db.engine)
+                tables = inspector.get_table_names()
+                app.logger.info(f"Tabelas encontradas no banco: {tables}")
+                
+                if 'users' in tables:
+                    app.logger.info("✅ Tabela 'users' confirmada")
+                else:
+                    app.logger.warning("⚠️ Tabela 'users' não encontrada")
+                    
+            except Exception as inspect_error:
+                app.logger.error(f"Erro ao inspecionar banco: {inspect_error}")
+            
+            # Aguardar um pouco para garantir que as tabelas foram criadas
+            import time
+            time.sleep(0.5)
+            
             # Garantir credenciais de admin
+            app.logger.info("Iniciando configuração de credenciais de admin...")
             ensure_admin_credentials()
+            
+            app.logger.info("=== CRIAÇÃO DO BANCO DE DADOS CONCLUÍDA ===")
             
         except Exception as e:
             app.logger.error(f"❌ Erro ao criar tabelas SQLite: {e}")
             print(f"❌ Erro ao criar tabelas SQLite: {e}")
+            import traceback
+            app.logger.error(f"Traceback: {traceback.format_exc()}")
             # Continuar mesmo com erro para que o servidor rode
             pass
 
