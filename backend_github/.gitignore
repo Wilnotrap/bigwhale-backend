@@ -1,5 +1,40 @@
 # Python
 __pycache__/
+*.pyc
+*.egg-info/
+*.env
+.env.production
+.env.local
+
+# Banco de Dados
+instance/
+*.db
+
+# Logs
+logs/
+
+# Ambientes Virtuais
+venv/
+.venv/
+
+# Arquivos de Deploy / Empacotamento
+*.zip
+*.tar.gz
+deploy-package/
+deployatual/
+deployhostinger/
+deploy-frontend-only/
+frontend-deploy-hostinger/
+frontend-deploy-render/
+
+# Arquivos específicos do projeto
+bigwhale-backend-render.zip
+
+# Arquivos de teste
+*.test
+*.log
+
+# Virtual environment
 *.py[cod]
 *$py.class
 *.so
@@ -16,14 +51,8 @@ parts/
 sdist/
 var/
 wheels/
-*.egg-info/
 .installed.cfg
 *.egg
-
-# Virtual environment
-venv/
-env/
-ENV/
 
 # IDE
 .vscode/
@@ -33,16 +62,6 @@ ENV/
 
 # Environment variables
 .env
-
-# Database
-instance/
-*.db
-*.sqlite
-*.sqlite3
-
-# Logs
-logs/
-*.log
 
 # OS
 .DS_Store
