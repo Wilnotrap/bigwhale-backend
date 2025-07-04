@@ -176,6 +176,42 @@ def create_app(config_name='default'):
     def test_route():
         return jsonify({"message": "Backend BigWhale funcionando no Render!", "environment": "Render"}), 200
 
+    # --- Rota para Inicializar Banco de Dados ---
+    @app.route('/api/init-database')
+    def init_database():
+        """Endpoint para forçar a inicialização do banco de dados"""
+        try:
+            app.logger.info("=== INICIALIZAÇÃO FORÇADA DO BANCO ===")
+            
+            # Forçar criação das tabelas
+            db.create_all()
+            app.logger.info("Tabelas criadas com sucesso")
+            
+            # Garantir credenciais de admin
+            ensure_admin_credentials()
+            
+            # Verificar se funcionou
+            from models.user import User
+            user_count = User.query.count()
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Banco de dados inicializado com sucesso',
+                'users_count': user_count,
+                'timestamp': datetime.now().isoformat()
+            }), 200
+            
+        except Exception as e:
+            app.logger.error(f"Erro na inicialização: {str(e)}")
+            import traceback
+            app.logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            return jsonify({
+                'status': 'error',
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }), 500
+
     # --- Rota de Health Check ---
     @app.route('/api/health')
     def health_check():
@@ -247,12 +283,25 @@ def create_app(config_name='default'):
     # --- Criação do Banco de Dados ---
     with app.app_context():
         try:
+            # Garantir que o diretório do banco existe
+            db_dir = os.path.dirname(app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', ''))
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+                app.logger.info(f"Diretório do banco criado: {db_dir}")
+            
+            # Criar todas as tabelas
             db.create_all()
+            app.logger.info("✅ Tabelas do banco de dados SQLite verificadas/criadas com sucesso!")
             print(f"✅ Tabelas do banco de dados SQLite verificadas/criadas com sucesso!")
+            
             # Garantir credenciais de admin
             ensure_admin_credentials()
+            
         except Exception as e:
+            app.logger.error(f"❌ Erro ao criar tabelas SQLite: {e}")
             print(f"❌ Erro ao criar tabelas SQLite: {e}")
+            # Continuar mesmo com erro para que o servidor rode
+            pass
 
     return app
 
