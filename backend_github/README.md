@@ -1,70 +1,40 @@
-# Backend Corrigido - Nautilus
+# BigWhale Backend - Railway Deploy
 
-## 🚀 Deploy no Render
+Este é o backend do sistema BigWhale hospedado no Railway.
 
-Este backend foi corrigido para resolver o erro 500 no login. As principais correções incluem:
+## Funcionalidades
 
-### ✅ Correções Implementadas
+- API REST para autenticação de usuários
+- Integração com Bitget API
+- Dashboard de trading
+- Gestão de usuários e sessões
 
-1. **Simplificação do endpoint de login** - Removida complexidade desnecessária
-2. **Melhor tratamento de erros** - Logs detalhados para debugging
-3. **Configuração de CORS otimizada** - Suporte adequado para frontend
-4. **Criação automática de usuários admin** - Garantia de credenciais válidas
-5. **Health check endpoint** - Monitoramento da aplicação
-
-### 📋 Instruções para Deploy
-
-1. **Faça upload dos arquivos** para um repositório Git
-2. **Configure o Render** usando o arquivo `render.yaml` incluído
-3. **Defina as variáveis de ambiente** no painel do Render:
-   - `FLASK_SECRET_KEY`: Uma chave secreta forte
-   - `AES_ENCRYPTION_KEY`: Chave de 32 bytes para criptografia
-   - `FLASK_ENV`: production
-   - `RENDER`: true
-
-### 🔑 Credenciais de Teste
-
-O sistema criará automaticamente estes usuários admin:
-
-- **Email**: admin@bigwhale.com  
-  **Senha**: Raikamaster1@
-
-- **Email**: willian@lexxusadm.com.br  
-  **Senha**: Bigwhale202021@
-
-### 🛠️ Endpoints Disponíveis
+## Endpoints Principais
 
 - `GET /api/health` - Health check
-- `POST /api/auth/login` - Login de usuários
-- `GET /api/test` - Endpoint de teste
+- `GET /api/test` - Teste básico
+- `POST /api/auth/login` - Login
+- `POST /api/auth/register` - Registro
+- `GET /api/auth/session` - Verificar sessão
+- `GET /api/dashboard/*` - Endpoints do dashboard
 
-### 📊 Logs e Debugging
+## Tecnologias
 
-O sistema inclui logs detalhados para facilitar o debugging:
-- Logs de inicialização
-- Logs de tentativas de login
-- Logs de erros com stack trace
+- Python 3.11+
+- Flask
+- SQLAlchemy
+- Gunicorn
+- Railway (hosting)
 
-### 🔧 Desenvolvimento Local
+## Deploy
 
-```bash
-# Instalar dependências
-pip install -r requirements.txt
+O deploy é automático via Railway quando há push para a branch main.
 
-# Executar servidor
-python app.py
-```
+## Variáveis de Ambiente
 
-O servidor estará disponível em `http://localhost:5000`
+- `FLASK_SECRET_KEY` - Chave secreta do Flask
+- `AES_ENCRYPTION_KEY` - Chave para criptografia das APIs
 
-### 📝 Notas Importantes
+## Frontend
 
-- O banco SQLite será criado automaticamente
-- As credenciais admin são configuradas na inicialização
-- O sistema é compatível com o frontend existente
-- Todos os endpoints retornam JSON válido
-
----
-
-**Status**: ✅ Testado e funcionando localmente  
-**Pronto para deploy**: ✅ Sim
+O frontend está hospedado em: https://bwhale.site 

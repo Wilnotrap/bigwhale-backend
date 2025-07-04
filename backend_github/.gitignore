@@ -1,8 +1,8 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
+*$py.class
+*.so
 .Python
 build/
 develop-eggs/
@@ -20,46 +20,37 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
+# Virtual environment
 venv/
 env/
 ENV/
-.venv/
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-instance/
-
-# Logs
-logs/
-*.log
-
-# Environment variables
-.env
-.env.local
-.env.production
-.env.development
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
+
+# Environment variables
+.env
+
+# Database
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Flask
-flask_session/
+# Backups
+backups/
 
 # Temporary files
 *.tmp
-*.temp
-
-# Cache
-.cache/
-.pytest_cache/
+*.temp 

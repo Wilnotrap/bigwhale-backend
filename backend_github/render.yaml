@@ -1,10 +1,10 @@
 services:
   - type: web
-    name: bigwhale-backend-fixed
+    name: bigwhale-backend
     env: python
-    runtime: python-3.10.12
+    runtime: python-3.11.9
     plan: free
-    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT app:application
     healthCheckPath: /api/health
     envVars:
@@ -14,5 +14,3 @@ services:
         value: chave-criptografia-api-bitget-nautilus-sistema-seguro-123456789
       - key: FLASK_ENV
         value: production
-      - key: RENDER
-        value: "1"
