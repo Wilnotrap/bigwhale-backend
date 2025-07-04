@@ -190,9 +190,6 @@ def login():
                 'full_name': user.full_name,
                 'is_admin': user.is_admin,
                 'is_active': user.is_active,
-                'bitget_api_key': api_key,
-                'bitget_api_secret': api_secret,
-                'bitget_passphrase': passphrase,
                 'api_configured': api_configured,
                 'session_token': new_session.session_token
             }
@@ -264,11 +261,6 @@ def check_session():
             session.clear()
             return jsonify({'authenticated': False}), 200
             
-        # Descriptografa as credenciais da API
-        api_key = decrypt_api_key(user.bitget_api_key_encrypted) if user.bitget_api_key_encrypted else None
-        api_secret = decrypt_api_key(user.bitget_api_secret_encrypted) if user.bitget_api_secret_encrypted else None
-        passphrase = decrypt_api_key(user.bitget_passphrase_encrypted) if user.bitget_passphrase_encrypted else None
-        
         return jsonify({
             'authenticated': True,
             'user': {
@@ -276,11 +268,7 @@ def check_session():
                 'email': user.email,
                 'full_name': user.full_name,
                 'is_admin': user.is_admin,
-                'is_active': user.is_active,
-                'bitget_api_key': api_key,
-                'bitget_api_secret': api_secret,
-                'bitget_passphrase': passphrase,
-                'api_configured': bool(api_key and api_secret and passphrase)
+                'is_active': user.is_active
             }
         }), 200
     except Exception as e:
