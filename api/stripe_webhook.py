@@ -1,18 +1,8 @@
-from flask import Blueprint, request, jsonify, redirect
+from flask import Blueprint, request, jsonify
 import json
 import hmac
 import hashlib
 import os
-from ..models.user import User
-from ..models.session import Session
-from ..models.trade import Trade
-from ..database import db
-from datetime import datetime
-import logging
-
-# Configurar logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 stripe_webhook_bp = Blueprint('stripe_webhook', __name__)
 
@@ -136,23 +126,18 @@ def webhook_success():
         ]
     })
 
-@stripe_webhook_bp.route('/webhook/status/<email>', methods=['GET'])
-def check_webhook_status(email):
+@stripe_webhook_bp.route('/webhook/status', methods=['GET'])
+def check_webhook_status():
     """
-    Verifica status do webhook para um email específico
+    Verifica status geral do webhook
     """
-    try:
-        user = User.query.filter_by(email=email).first()
-        if user:
-            return jsonify({
-                'status': 'found',
-                'subscription_status': user.subscription_status,
-                'subscription_type': user.subscription_type,
-                'created_at': user.created_at.isoformat() if user.created_at else None
-            })
-        else:
-            return jsonify({'status': 'not_found', 'message': 'Usuário não encontrado'}), 404
-            
-    except Exception as e:
-        logger.error(f"Erro ao verificar status: {str(e)}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500 
+    return jsonify({
+        'status': 'active',
+        'message': 'Webhook funcionando corretamente',
+        'endpoints': [
+            '/api/webhook/stripe - Recebe webhooks do Stripe',
+            '/api/webhook/test - Endpoint de teste',
+            '/api/webhook/success - Página de sucesso',
+            '/api/webhook/status - Status do webhook'
+        ]
+    }) 
