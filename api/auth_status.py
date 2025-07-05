@@ -22,23 +22,39 @@ def check_payment_status():
     Verifica se o usuário foi ativado após pagamento
     """
     try:
+        logger.info("=== VERIFICAÇÃO DE STATUS DE PAGAMENTO ===")
+        
+        # Verificar se dados foram enviados
         data = request.get_json()
+        logger.info(f"Dados recebidos: {data}")
+        
+        if not data:
+            logger.error("Nenhum dado JSON recebido")
+            return jsonify({'error': 'Dados não fornecidos'}), 400
+        
         email = data.get('email')
+        logger.info(f"Email para verificação: {email}")
         
         if not email:
+            logger.error("Email não fornecido")
             return jsonify({'error': 'Email é obrigatório'}), 400
         
         # Buscar usuário pelo email
+        logger.info(f"Buscando usuário com email: {email}")
         user = User.query.filter_by(email=email).first()
         
         if not user:
+            logger.warning(f"Usuário não encontrado: {email}")
             return jsonify({
                 'status': 'not_found',
                 'message': 'Usuário não encontrado'
-            }), 404
+            }), 200  # Mudei para 200 para não dar erro no frontend
+        
+        logger.info(f"Usuário encontrado: ID={user.id}, is_active={user.is_active}, subscription_status={user.subscription_status}")
         
         # Verificar se está ativo
         if user.is_active and user.subscription_status == 'active':
+            logger.info(f"Usuário {email} está ativo e com assinatura ativa")
             return jsonify({
                 'status': 'active',
                 'message': 'Usuário ativo e pronto para usar',
@@ -46,19 +62,26 @@ def check_payment_status():
                 'subscription_status': user.subscription_status
             }), 200
         elif user.subscription_status == 'incomplete':
+            logger.info(f"Usuário {email} com pagamento em processamento")
             return jsonify({
                 'status': 'incomplete',
                 'message': 'Pagamento em processamento'
-            }), 202
+            }), 200
         else:
+            logger.info(f"Usuário {email} ainda não ativado")
             return jsonify({
                 'status': 'inactive',
                 'message': 'Usuário ainda não ativado'
             }), 200
             
     except Exception as e:
-        logger.error(f"Erro ao verificar status de pagamento: {str(e)}")
-        return jsonify({'error': 'Erro interno do servidor'}), 500
+        logger.error(f"ERRO CRÍTICO ao verificar status de pagamento: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            'error': 'Erro interno do servidor',
+            'details': str(e)
+        }), 500
 
 @auth_status_bp.route('/api/auth/activate-after-payment', methods=['POST'])
 def activate_after_payment():
