@@ -186,10 +186,12 @@ def create_app(config_name='default'):
     from auth.routes import auth_bp
     from api.dashboard import dashboard_bp
     from api.admin import admin_bp
+    from api.stripe_webhook import stripe_webhook_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    app.register_blueprint(stripe_webhook_bp, url_prefix='/api')
 
     # --- Rota de Teste Simples ---
     @app.route('/api/test')
