@@ -40,9 +40,10 @@ def create_app(config_name='default'):
     # --- Configuração da Aplicação ---
     app.config.from_mapping(
         SECRET_KEY=os.environ.get('FLASK_SECRET_KEY', 'uma-chave-secreta-bem-dificil-de-adivinhar-987654'),
-        SESSION_COOKIE_SAMESITE='None',
-        SESSION_COOKIE_SECURE=True,  # True para produção com HTTPS
+        SESSION_COOKIE_SAMESITE='Lax',  # Mudança: None para Lax
+        SESSION_COOKIE_SECURE=True,  # Manter True para HTTPS
         SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_DOMAIN=None,  # Adicionar esta linha
         PERMANENT_SESSION_LIFETIME=86400,  # 24 horas
         AES_ENCRYPTION_KEY=os.environ.get('AES_ENCRYPTION_KEY', 'chave-criptografia-api-bitget-nautilus-sistema-seguro-123456789')
     )
@@ -56,9 +57,17 @@ def create_app(config_name='default'):
     # --- Inicialização de Extensões ---
     CORS(app, 
          supports_credentials=True, 
-         origins=["http://localhost:3000", "http://localhost:3001", "https://bwhale.site", "http://bwhale.site"],
+         origins=[
+             "http://localhost:3000", 
+             "http://localhost:3001", 
+             "https://bwhale.site", 
+             "http://bwhale.site",
+             "https://www.bwhale.site",
+             "http://www.bwhale.site"
+         ],
          allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],
-         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         expose_headers=["Set-Cookie"])
     db.init_app(app)
     
     # --- Registro de Blueprints (Rotas da API) ---
@@ -76,6 +85,15 @@ def create_app(config_name='default'):
     @app.route('/api/test')
     def test_route():
         return jsonify({"message": "Backend BigWhale funcionando no Render!"}), 200
+    
+    @app.route('/api/test-auth')
+    def test_auth():
+        from flask import session
+        return jsonify({
+            "message": "Teste de autenticação",
+            "session_data": dict(session),
+            "has_user_id": 'user_id' in session
+        }), 200
 
     return app
 
