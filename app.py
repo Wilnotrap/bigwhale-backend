@@ -40,16 +40,15 @@ def create_app(config_name='default'):
     # --- Configuração da Aplicação ---
     app.config.from_mapping(
         SECRET_KEY=os.environ.get('FLASK_SECRET_KEY', 'uma-chave-secreta-bem-dificil-de-adivinhar-987654'),
-        SESSION_COOKIE_SAMESITE='Lax',  # Mudança: None para Lax
-        SESSION_COOKIE_SECURE=True,  # Manter True para HTTPS
+        SESSION_COOKIE_SAMESITE='Lax',
+        SESSION_COOKIE_SECURE=True,
         SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_DOMAIN=None,  # Adicionar esta linha
-        PERMANENT_SESSION_LIFETIME=86400,  # 24 horas
+        SESSION_COOKIE_DOMAIN=None,
+        PERMANENT_SESSION_LIFETIME=86400,
         AES_ENCRYPTION_KEY=os.environ.get('AES_ENCRYPTION_KEY', 'chave-criptografia-api-bitget-nautilus-sistema-seguro-123456789')
     )
     
     # Configuração do banco de dados SQLite
-    # No Render, o sistema de arquivos é efêmero. Usamos /tmp para o DB.
     db_path = os.path.join('/tmp', 'site.db')
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -68,20 +67,34 @@ def create_app(config_name='default'):
          allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
          expose_headers=["Set-Cookie"])
+    
     db.init_app(app)
     
+    # *** CRÍTICO: Inicializar banco de dados ***
+    with app.app_context():
+        try:
+            db.create_all()
+            app.logger.info('✅ Tabelas do banco de dados criadas com sucesso!')
+        except Exception as e:
+            app.logger.error(f'❌ Erro ao criar tabelas: {str(e)}')
+    
     # --- Registro de Blueprints (Rotas da API) ---
-    from auth.routes import auth_bp
-    from api.dashboard import dashboard_bp
-    from api.admin import admin_bp
-    from api.stripe_webhook import stripe_webhook_bp
+    try:
+        from auth.routes import auth_bp
+        from api.dashboard import dashboard_bp
+        from api.admin import admin_bp
+        from api.stripe_webhook import stripe_webhook_bp
 
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
-    app.register_blueprint(admin_bp, url_prefix='/api/admin')
-    app.register_blueprint(stripe_webhook_bp, url_prefix='')
+        app.register_blueprint(auth_bp, url_prefix='/api/auth')
+        app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
+        app.register_blueprint(admin_bp, url_prefix='/api/admin')
+        app.register_blueprint(stripe_webhook_bp, url_prefix='')
+        
+        app.logger.info('✅ Blueprints registrados com sucesso!')
+    except Exception as e:
+        app.logger.error(f'❌ Erro ao registrar blueprints: {str(e)}')
 
-    # --- Rota de Teste Simples ---
+    # --- Rotas de Teste e Debug ---
     @app.route('/api/test')
     def test_route():
         return jsonify({"message": "Backend BigWhale funcionando no Render!"}), 200
@@ -92,15 +105,48 @@ def create_app(config_name='default'):
         return jsonify({
             "message": "Teste de autenticação",
             "session_data": dict(session),
-            "has_user_id": 'user_id' in session
+            "has_user_id": 'user_id' in session,
+            "backend_url": "https://bigwhale-backend.onrender.com"
         }), 200
+    
+    @app.route('/api/debug')
+    def debug_route():
+        try:
+            from models.user import User
+            user_count = User.query.count()
+            return jsonify({
+                "status": "OK",
+                "database_connected": True,
+                "user_count": user_count,
+                "tables_created": True
+            }), 200
+        except Exception as e:
+            return jsonify({
+                "status": "ERROR",
+                "database_connected": False,
+                "error": str(e)
+            }), 500
+    
+    # --- Error Handlers ---
+    @app.errorhandler(500)
+    def internal_error(error):
+        app.logger.error(f'❌ Erro 500: {str(error)}')
+        return jsonify({
+            "error": "Internal Server Error",
+            "message": "Erro interno do servidor. Verifique os logs."
+        }), 500
+    
+    @app.errorhandler(404)
+    def not_found(error):
+        return jsonify({
+            "error": "Not Found",
+            "message": "Endpoint não encontrado"
+        }), 404
 
     return app
 
 # --- Ponto de Entrada para Gunicorn ---
-# O Render usará esta variável 'application' para iniciar o servidor.
 application = create_app()
 
 if __name__ == '__main__':
-    # Este bloco é para execução local, não será usado pelo Render.
     application.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5001)), debug=True)
