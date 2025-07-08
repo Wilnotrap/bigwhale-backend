@@ -82,7 +82,7 @@ def create_app(config_name='default'):
     # Configurar Flask-Session com configurações mais simples
     try:
         app.config['SESSION_TYPE'] = 'filesystem'
-        app.config['SESSION_PERMANENT'] = False
+        app.config['SESSION_PERMANENT'] = True
         app.config['SESSION_USE_SIGNER'] = True
         app.config['SESSION_KEY_PREFIX'] = 'bigwhale:'
         app.config['SESSION_FILE_DIR'] = os.path.join(app.instance_path, 'flask_session')
