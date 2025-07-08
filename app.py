@@ -48,7 +48,7 @@ def create_app(config_name='default'):
         SESSION_COOKIE_SAMESITE='None',
         SESSION_COOKIE_SECURE=True,  # True para produção com HTTPS
         SESSION_COOKIE_HTTPONLY=True,
-        PERMANENT_SESSION_LIFETIME=86400,  # 24 horas
+        PERMANENT_SESSION_LIFETIME=2592000,  # 30 dias (30 * 24 * 60 * 60 segundos)
         AES_ENCRYPTION_KEY=os.environ.get('AES_ENCRYPTION_KEY', 'chave-criptografia-api-bitget-nautilus-sistema-seguro-123456789')
     )
     
@@ -88,7 +88,7 @@ def create_app(config_name='default'):
         app.config['SESSION_FILE_DIR'] = os.path.join(app.instance_path, 'flask_session')
         app.config['SESSION_FILE_THRESHOLD'] = 500
         app.config['SESSION_FILE_MODE'] = 384
-        app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
+        app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30) # 30 dias
         
         # Garantir que o diretório de sessão existe
         session_dir = app.config['SESSION_FILE_DIR']
@@ -187,11 +187,15 @@ def create_app(config_name='default'):
     from api.dashboard import dashboard_bp
     from api.admin import admin_bp
     from api.stripe_webhook import stripe_webhook_bp
+    from services.secure_api_service import SecureAPIService
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(stripe_webhook_bp, url_prefix='/api')
+
+    # Inicializar SecureAPIService e registrar suas rotas
+    secure_api_service = SecureAPIService(app)
 
     # --- Rota de Teste Simples ---
     @app.route('/api/test')
