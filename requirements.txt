@@ -10,4 +10,4 @@ python-dotenv==1.0.0
 cryptography==41.0.7
 PyJWT==2.8.0
 gunicorn==21.2.0
-Flask-SQLAlchemySession==1.1
+Flask-SQLAlchemySession==0.0.4
