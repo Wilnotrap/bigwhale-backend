@@ -53,9 +53,10 @@ def create_app(config_name='default'):
     )
     
     # Configuração do banco de dados SQLite
-    # No Render, usar /tmp para arquivos temporários
+    # No Render, usar diretório persistente em vez de /tmp
     if os.environ.get('RENDER'):
-        db_path = '/tmp/site.db'
+        # Usar diretório atual da aplicação que é persistente
+        db_path = os.path.join(os.getcwd(), 'site.db')
     else:
         db_path = os.path.join(os.getcwd(), 'instance', 'site.db')
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
