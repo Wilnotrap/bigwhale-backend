@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from database import db
 from models.user import User
-from services.credential_monitor import credential_monitor
+from services.credential_monitor import CredentialMonitor
 from utils.api_persistence import APIPersistence
 from utils.security import decrypt_api_key, encrypt_api_key
 from dotenv import load_dotenv
@@ -25,9 +25,17 @@ from dotenv import load_dotenv
 class SecureAPIService:
     """Serviço de API segura para credenciais"""
     
-    def __init__(self, app: Flask = None):
+    def __init__(self, app: Flask = None, credential_monitor: CredentialMonitor = None):
         self.app = app
-        self.api_persistence = APIPersistence()
+        # Usar a instância de credential_monitor passada, ou usar a global se disponível
+        if credential_monitor is None:
+            # Isso só deve ser usado em cenários onde credential_monitor é importado como singleton global
+            from services.credential_monitor import credential_monitor as global_credential_monitor
+            self.credential_monitor = global_credential_monitor
+        else:
+            self.credential_monitor = credential_monitor
+        
+        self.api_persistence = self.credential_monitor.api_persistence # Acessar api_persistence via credential_monitor
         
         if app:
             self.init_app(app)
@@ -109,7 +117,7 @@ class SecureAPIService:
                     }), 400
                 
                 # Salvar com segurança
-                success = credential_monitor.secure_save_credentials(
+                success = self.credential_monitor.secure_save_credentials(
                     user_id, api_key, api_secret, passphrase
                 )
                 
@@ -141,7 +149,7 @@ class SecureAPIService:
                 user_id = session['user_id']
                 
                 # Verificar credenciais
-                result = credential_monitor.check_user_credentials(
+                result = self.credential_monitor.check_user_credentials(
                     User.query.get(user_id)
                 )
                 
@@ -189,7 +197,7 @@ class SecureAPIService:
                 
                 if has_credentials:
                     # Verificar integridade
-                    validation = credential_monitor.check_user_credentials(user)
+                    validation = self.credential_monitor.check_user_credentials(user)
                     status.update({
                         'valid': validation.get('valid', False),
                         'error': validation.get('error'),
@@ -251,7 +259,7 @@ class SecureAPIService:
                     )
                 else:
                     # Restaurar backup mais recente
-                    success = credential_monitor.attempt_credential_restoration(
+                    success = self.credential_monitor.attempt_credential_restoration(
                         User.query.get(user_id)
                     )
                 
@@ -282,7 +290,7 @@ class SecureAPIService:
             try:
                 user_id = session['user_id']
                 
-                result = credential_monitor.force_check_user(user_id)
+                result = self.credential_monitor.force_check_user(user_id)
                 
                 return jsonify({
                     'success': True,
@@ -302,7 +310,7 @@ class SecureAPIService:
         def get_monitor_status():
             """Retorna o status do monitoramento"""
             try:
-                status = credential_monitor.get_monitoring_status()
+                status = self.credential_monitor.get_monitoring_status()
                 
                 return jsonify({
                     'success': True,
@@ -404,7 +412,7 @@ def create_secure_api_app():
     
     # Inicializar extensões
     db.init_app(app)
-    credential_monitor.init_app(app)
+    self.credential_monitor.init_app(app)
     secure_api_service.init_app(app)
     
     return app

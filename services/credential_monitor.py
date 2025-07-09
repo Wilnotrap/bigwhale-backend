@@ -27,9 +27,20 @@ from dotenv import load_dotenv
 class CredentialMonitor:
     """Serviço de monitoramento de credenciais"""
     
-    def __init__(self, app: Flask = None):
+    def __init__(self, app: Flask = None, api_persistence: APIPersistence = None):
         self.app = app
-        self.api_persistence = APIPersistence()
+        # Usar a instância de api_persistence passada, ou criar uma se não for fornecida (com path de fallback)
+        if api_persistence is None:
+            # Isso só deve ser usado em cenários de teste ou quando db_path for inferido globalmente
+            from flask import current_app
+            try:
+                db_path_fallback = os.path.join(current_app.instance_path, 'site.db')
+            except RuntimeError:
+                db_path_fallback = os.path.join('backend', 'instance', 'site.db')
+            self.api_persistence = APIPersistence(db_path_fallback)
+        else:
+            self.api_persistence = api_persistence
+
         self.monitoring = False
         self.monitor_thread = None
         self.check_interval = 60  # Verificar a cada 1 minuto
