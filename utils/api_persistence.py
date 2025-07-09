@@ -241,4 +241,11 @@ class APIPersistence:
         return removed_count
 
 # Instância global para uso em outras partes da aplicação
-api_persistence = APIPersistence() 
+# Determinar o caminho do banco de dados usando a mesma lógica do app.py
+import os
+if os.environ.get('RENDER'):
+    db_path = '/tmp/site.db'
+else:
+    db_path = os.path.join(os.getcwd(), 'instance', 'site.db')
+
+api_persistence = APIPersistence(db_path) 
