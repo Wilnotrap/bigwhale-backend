@@ -10,7 +10,6 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 from database import db
-from flask_sqlalchemy_session import SQLAlchemySessionInterface
 
 import logging
 from logging.handlers import RotatingFileHandler
@@ -90,9 +89,8 @@ def create_app(config_name='default'):
         app.config['SESSION_KEY_PREFIX'] = 'bigwhale:'
         app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30) # 30 dias
         
-        # Inicializar Flask-Session com a nova interface
+        # Inicializar Flask-Session
         from flask_session import Session
-        app.session_interface = SQLAlchemySessionInterface(db.session, app.config['SESSION_SQLALCHEMY_TABLE'])
         Session(app)
         app.logger.info("Flask-Session inicializado com sucesso usando SQLAlchemy")
         
