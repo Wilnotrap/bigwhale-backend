@@ -244,7 +244,8 @@ class APIPersistence:
 # Determinar o caminho do banco de dados usando a mesma lógica do app.py
 import os
 if os.environ.get('RENDER'):
-    db_path = '/tmp/site.db'
+    # Usar diretório atual da aplicação que é persistente
+    db_path = os.path.join(os.getcwd(), 'site.db')
 else:
     db_path = os.path.join(os.getcwd(), 'instance', 'site.db')
 
