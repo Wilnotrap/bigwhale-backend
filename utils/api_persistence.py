@@ -13,18 +13,8 @@ from utils.security import encrypt_api_key, decrypt_api_key
 class APIPersistence:
     """Classe para gerenciar a persistência das credenciais da API"""
     
-    def __init__(self, db_path: str = None):
-        if db_path is None:
-            # Usar o mesmo caminho do Flask
-            import os
-            from flask import current_app
-            try:
-                self.db_path = os.path.join(current_app.instance_path, 'site.db')
-            except RuntimeError:
-                # Fallback se não estiver em contexto do Flask
-                self.db_path = os.path.join('backend', 'instance', 'site.db')
-        else:
-            self.db_path = db_path
+    def __init__(self, db_path: str):
+        self.db_path = db_path
         self.backup_dir = 'backups/api_credentials'
         self._ensure_backup_dir()
     

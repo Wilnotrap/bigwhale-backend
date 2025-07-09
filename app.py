@@ -10,6 +10,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 from database import db
+from flask_sqlalchemy_session import SQLAlchemySessionInterface
 
 import logging
 from logging.handlers import RotatingFileHandler
@@ -79,27 +80,21 @@ def create_app(config_name='default'):
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
     db.init_app(app)
     
-    # Configurar Flask-Session com configurações mais simples
+    # Configurar Flask-Session com sessões persistentes no banco de dados
     try:
-        app.config['SESSION_TYPE'] = 'filesystem'
+        app.config['SESSION_TYPE'] = 'sqlalchemy'
+        app.config['SESSION_SQLALCHEMY'] = db
+        app.config['SESSION_SQLALCHEMY_TABLE'] = 'flask_sessions'
         app.config['SESSION_PERMANENT'] = True
         app.config['SESSION_USE_SIGNER'] = True
         app.config['SESSION_KEY_PREFIX'] = 'bigwhale:'
-        app.config['SESSION_FILE_DIR'] = os.path.join(app.instance_path, 'flask_session')
-        app.config['SESSION_FILE_THRESHOLD'] = 500
-        app.config['SESSION_FILE_MODE'] = 384
         app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30) # 30 dias
         
-        # Garantir que o diretório de sessão existe
-        session_dir = app.config['SESSION_FILE_DIR']
-        if not os.path.exists(session_dir):
-            os.makedirs(session_dir, exist_ok=True)
-            app.logger.info(f"Diretório de sessão criado: {session_dir}")
-        
-        # Inicializar Flask-Session
+        # Inicializar Flask-Session com a nova interface
         from flask_session import Session
+        app.session_interface = SQLAlchemySessionInterface(db.session, app.config['SESSION_SQLALCHEMY_TABLE'])
         Session(app)
-        app.logger.info("Flask-Session inicializado com sucesso")
+        app.logger.info("Flask-Session inicializado com sucesso usando SQLAlchemy")
         
     except Exception as session_error:
         app.logger.error(f"Erro ao configurar Flask-Session: {str(session_error)}")
