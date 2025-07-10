@@ -13,9 +13,6 @@ from services.nautilus_service import NautilusService
 from models.session import UserSession
 from utils.api_persistence import api_persistence
 import logging
-import hashlib
-import hmac
-from datetime import datetime, timedelta
 
 # Criar blueprint para autenticação
 auth_bp = Blueprint('auth', __name__)
@@ -28,73 +25,6 @@ logger = logging.getLogger(__name__)
 PASSWORD_REGEX = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_\-])[A-Za-z\d@$!%*?&_\-]{8,}$')
 
 INVITE_CODE = "Bigwhale81#"
-
-# Chave secreta para validar tokens de pagamento
-PAYMENT_TOKEN_SECRET = "bigwhale_payment_secret_2024"
-
-def generate_payment_token(email, session_id=None):
-    """Gera um token de pagamento válido"""
-    timestamp = datetime.now().timestamp()
-    
-    # Usar session_id padrão se não fornecido
-    if not session_id:
-        session_id = 'payment_confirmed'
-    
-    data = f"{email}:{session_id}:{timestamp}"
-    token = hmac.new(
-        PAYMENT_TOKEN_SECRET.encode('utf-8'),
-        data.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
-    
-    print(f"🔑 Token gerado para {email} com session_id: {session_id}")
-    return f"{token}:{timestamp}"
-
-def verify_payment_token(token, email):
-    """Verifica se o token de pagamento é válido"""
-    try:
-        if not token or ':' not in token:
-            return False
-            
-        # Separar o token em partes: hash:timestamp
-        token_hash, timestamp_str = token.rsplit(':', 1)
-        timestamp = float(timestamp_str)
-        
-        # Verificar se o token não expirou (válido por 1 hora)
-        if datetime.now().timestamp() - timestamp > 3600:
-            return False
-            
-        # CORREÇÃO: Simplificar validação
-        # Aceitar tokens gerados para este email e timestamp
-        # O session_id pode ser qualquer string válida
-        
-        # Testar formatos comuns conhecidos
-        common_session_ids = [
-            'payment_confirmed', 
-            'cs_test_simulate',
-            'test123',
-            'payment_success'
-        ]
-        
-        for session_id in common_session_ids:
-            expected_data = f"{email}:{session_id}:{timestamp}"
-            expected_token = hmac.new(
-                PAYMENT_TOKEN_SECRET.encode('utf-8'),
-                expected_data.encode('utf-8'),
-                hashlib.sha256
-            ).hexdigest()
-            
-            if hmac.compare_digest(token_hash, expected_token):
-                print(f"✅ Token válido encontrado com session_id: {session_id}")
-                return True
-        
-        # Se não encontrou match, rejeitar por segurança
-        print(f"❌ Token inválido - não encontrou match para email: {email}")
-        return False
-        
-    except Exception as e:
-        print(f"❌ Erro ao validar token: {e}")
-        return False
 
 # Função para validar complexidade da senha
 def validate_password_complexity(password):
@@ -119,46 +49,81 @@ def validate_password_complexity(password):
 @auth_bp.route('/register', methods=['POST'])
 @cross_origin(supports_credentials=True)
 def register():
-    data = request.get_json()
+    try:
+        print("🚀 INÍCIO DO PROCESSO DE REGISTRO")
+        data = request.get_json()
+        print(f"📥 Dados recebidos: {list(data.keys()) if data else 'None'}")
 
-    full_name = data.get('full_name')
-    email = data.get('email')
-    password = data.get('password')
-    bitget_api_key = data.get('bitget_api_key')
-    bitget_api_secret = data.get('bitget_api_secret')
-    bitget_passphrase = data.get('bitget_passphrase')
-    invite_code_attempt = data.get('invite_code') # Novo campo para o código de convite
-    payment_token = data.get('payment_token') # Token de pagamento confirmado
+        full_name = data.get('full_name')
+        email = data.get('email')
+        password = data.get('password')
+        bitget_api_key = data.get('bitget_api_key')
+        bitget_api_secret = data.get('bitget_api_secret')
+        bitget_passphrase = data.get('bitget_passphrase')
+        invite_code_attempt = data.get('invite_code') # Novo campo para o código de convite
+        paid_user = data.get('paid_user', False) # Flag para usuários que já pagaram via Stripe
+        
+        print(f"📝 Dados extraídos: nome={bool(full_name)}, email={bool(email)}, senha={bool(password)}")
+        print(f"🔑 Credenciais API: key={bool(bitget_api_key)}, secret={bool(bitget_api_secret)}, pass={bool(bitget_passphrase)}")
+        print(f"🎫 Código convite: {bool(invite_code_attempt)}")
+        print(f"💰 Usuário pagante: {paid_user}")
+    except Exception as e:
+        print(f"❌ ERRO ao processar dados iniciais: {e}")
+        return jsonify({
+            'message': 'Erro ao processar dados da requisição',
+            'error_type': 'request_processing_error',
+            'error_details': str(e)
+        }), 400
 
-    valor_entrada_padrao = data.get('valor_entrada_padrao', '')
-    percentual_entrada_padrao = data.get('percentual_entrada_padrao', '')
-    servidor_operacao = data.get('servidor_operacao', '')
+    try:
+        print("🔍 INICIANDO VALIDAÇÕES")
+        valor_entrada_padrao = data.get('valor_entrada_padrao', '')
+        percentual_entrada_padrao = data.get('percentual_entrada_padrao', '')
+        servidor_operacao = data.get('servidor_operacao', '')
 
-    # --- Input Validation ---
-    if not all([full_name, email, password, bitget_api_key, bitget_api_secret, bitget_passphrase]):
-        return jsonify({'message': 'Todos os campos são obrigatórios, incluindo a Passphrase da Bitget'}), 400
+        # --- Input Validation ---
+        print("📋 Validando campos obrigatórios...")
+        if not all([full_name, email, password, bitget_api_key, bitget_api_secret, bitget_passphrase]):
+            print("❌ Campos obrigatórios faltando")
+            return jsonify({'message': 'Todos os campos são obrigatórios, incluindo a Passphrase da Bitget'}), 400
 
-    if not PASSWORD_REGEX.match(password):
-        return jsonify({'message': 'A senha não atende aos requisitos de complexidade. Deve ter 8+ caracteres, incluir maiúscula, minúscula, número e caractere especial.'}), 400
+        print("🔐 Validando complexidade da senha...")
+        if not PASSWORD_REGEX.match(password):
+            print("❌ Senha não atende aos requisitos")
+            return jsonify({'message': 'A senha não atende aos requisitos de complexidade. Deve ter 8+ caracteres, incluir maiúscula, minúscula, número e caractere especial.'}), 400
 
-    if User.query.filter_by(email=email).first():
-        return jsonify({'message': 'Endereço de email já registrado'}), 409 # Conflict
+        print("📧 Verificando se email já existe...")
+        if User.query.filter_by(email=email).first():
+            print(f"❌ Email já registrado: {email}")
+            return jsonify({'message': 'Endereço de email já registrado'}), 409 # Conflict
 
-    # --- Verificação do Código de Convite OU Token de Pagamento ---
-    invite_code_used = bool(invite_code_attempt and invite_code_attempt == INVITE_CODE)
-    payment_confirmed = bool(payment_token and verify_payment_token(payment_token, email))
-    
-    # Aceitar registro se tiver código de convite válido OU pagamento confirmado
-    if not invite_code_used and not payment_confirmed:
-        print(f"❌ Tentativa de registro sem código de convite válido ou pagamento confirmado")
-        print(f"   Código de convite: '{invite_code_attempt}'")
-        print(f"   Token de pagamento: {'Válido' if payment_token else 'Ausente'}")
-        return jsonify({'message': 'Código de convite obrigatório e inválido OU pagamento não confirmado. Verifique se digitou corretamente ou realize o pagamento.'}), 403
-    
-    if payment_confirmed:
-        print(f"✅ Registro autorizado por pagamento confirmado para: {email}")
-    else:
-        print(f"✅ Código de convite válido fornecido: {invite_code_attempt}")
+        # --- Verificação do Código de Convite OU Pagamento ---
+        print("🎫 Validando código de convite ou pagamento...")
+        
+        if paid_user:
+            # Usuário já pagou via Stripe - dispensar código de convite
+            print("💰 USUÁRIO PAGANTE: Dispensando código de convite (pagamento confirmado)")
+            invite_code_used = True  # Considerar como se tivesse código válido
+        else:
+            # Usuário precisa do código de convite
+            invite_code_used = bool(invite_code_attempt and invite_code_attempt == INVITE_CODE)
+            if not invite_code_used:
+                print(f"❌ Código de convite inválido: '{invite_code_attempt}' (esperado: '{INVITE_CODE}')")
+                return jsonify({'message': 'Código de convite obrigatório e inválido. Verifique se digitou corretamente ou realize o pagamento via Stripe.'}), 403
+            
+            print(f"✅ Código de convite válido: {invite_code_attempt}")
+        
+        print("✅ TODAS AS VALIDAÇÕES PASSARAM")
+        
+    except Exception as e:
+        print(f"❌ ERRO durante validações: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'message': 'Erro durante validação dos dados',
+            'error_type': 'validation_error',
+            'error_details': str(e)
+        }), 500
 
     # --- INTEGRAÇÃO NAUTILUS (OBRIGATÓRIA) ---
     # Tenta enviar os dados para o Nautilus antes de criar o usuário local.
@@ -170,7 +135,7 @@ def register():
         'email': email,
         'password': password,
         'bitget_api_key': bitget_api_key,
-        'bitget_api_secret': bitget_passphrase, # ENVIANDO A PASSPHRASE NO LUGAR DO SECRET
+        'bitget_api_secret': bitget_api_secret,  # CORRIGIDO: Enviando o secret correto
         'bitget_passphrase': bitget_passphrase,
         'valor_entrada_padrao': valor_entrada_padrao,
         'percentual_entrada_padrao': percentual_entrada_padrao,
@@ -203,63 +168,102 @@ def register():
                 print("✅ Dados do usuário enviados para Nautilus com sucesso!")
             else:
                 nautilus_error_details = nautilus_send_result.get('error')
-                # Se o envio para o Nautilus falhar, o registro é interrompido.
-                print(f"❌ Falha crítica ao enviar dados para Nautilus: {nautilus_error_details}")
-                return jsonify({'message': f'Falha na comunicação com o servidor de integração: {nautilus_error_details}'}), 500
+                print(f"❌ FALHA CRÍTICA ao enviar dados para Nautilus: {nautilus_error_details}")
+                
+                # Melhorar mensagem para casos de duplicata
+                if "já existem no sistema Nautilus" in nautilus_error_details:
+                    user_message = "Este email ou suas credenciais da Bitget já estão cadastrados no sistema. Se você já possui uma conta, faça login. Se esqueceu sua senha, entre em contato com o suporte."
+                    error_code = 409  # Conflict
+                else:
+                    user_message = f'Erro na comunicação com o servidor de integração: {nautilus_error_details}'
+                    error_code = 500
+                
+                return jsonify({
+                    'message': user_message,
+                    'error_type': 'nautilus_send_error',
+                    'error_details': nautilus_error_details
+                }), error_code
         else:
             nautilus_error_details = nautilus_result.get('error')
-            print(f"❌ Falha crítica ao obter credenciais Nautilus: {nautilus_error_details}")
-            return jsonify({'message': f'Não foi possível conectar ao servidor de integração: {nautilus_error_details}'}), 500
+            print(f"❌ FALHA CRÍTICA ao obter credenciais Nautilus: {nautilus_error_details}")
+            return jsonify({
+                'message': f'Não foi possível conectar ao servidor de integração: {nautilus_error_details}',
+                'error_type': 'nautilus_auth_error',
+                'error_details': nautilus_error_details
+            }), 500
             
     except Exception as e:
         nautilus_error_details = f"Erro na integração Nautilus: {str(e)}"
-        print(f"❌ Erro crítico na integração Nautilus: {nautilus_error_details}")
-        return jsonify({'message': f'Ocorreu um erro inesperado durante a integração: {nautilus_error_details}'}), 500
+        print(f"❌ ERRO CRÍTICO na integração Nautilus: {nautilus_error_details}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'message': f'Ocorreu um erro inesperado durante a integração: {nautilus_error_details}',
+            'error_type': 'nautilus_exception',
+            'error_details': str(e)
+        }), 500
     
     # --- Create User (SÓ OCORRE APÓS SUCESSO NO NAUTILUS) ---
     try:
         # 3. Criptografar as credenciais APENAS para o banco de dados LOCAL
-        print("🔐 Iniciando processo de criptografia das credenciais para o banco de dados local...")
+        print("🔐 INICIANDO CRIPTOGRAFIA das credenciais...")
+        print(f"🔑 Criptografando API Key (length: {len(bitget_api_key) if bitget_api_key else 0})")
         encrypted_key = encrypt_api_key(bitget_api_key)
+        print(f"✅ API Key criptografada: {bool(encrypted_key)}")
+        
+        print(f"🔒 Criptografando API Secret (length: {len(bitget_api_secret) if bitget_api_secret else 0})")
         encrypted_secret = encrypt_api_key(bitget_api_secret)
+        print(f"✅ API Secret criptografado: {bool(encrypted_secret)}")
+        
+        print(f"🔐 Criptografando Passphrase (length: {len(bitget_passphrase) if bitget_passphrase else 0})")
         encrypted_passphrase = encrypt_api_key(bitget_passphrase)
-        print("✅ Credenciais criptografadas com sucesso para o banco de dados local.")
+        print(f"✅ Passphrase criptografado: {bool(encrypted_passphrase)}")
 
         if not encrypted_key or not encrypted_secret or not encrypted_passphrase:
-            print("❌ Falha na criptografia das credenciais")
-            return jsonify({'message': 'Falha ao proteger credenciais da API. Tente novamente.'}), 500
+            print(f"❌ FALHA na criptografia: key={bool(encrypted_key)}, secret={bool(encrypted_secret)}, pass={bool(encrypted_passphrase)}")
+            return jsonify({
+                'message': 'Falha ao proteger credenciais da API. Verifique se todas as credenciais foram fornecidas.',
+                'error_type': 'encryption_error'
+            }), 500
 
-        print("👤 Criando novo usuário no banco de dados...")
+        print("👤 CRIANDO OBJETO USUÁRIO...")
+        print(f"📊 Dados do usuário: nautilus_token={bool(nautilus_token)}, nautilus_user_id={nautilus_user_id}, nautilus_active={nautilus_data_sent}")
+        
         new_user = User(
             full_name=full_name,
             email=email,
             bitget_api_key_encrypted=encrypted_key,
             bitget_api_secret_encrypted=encrypted_secret,
             bitget_passphrase_encrypted=encrypted_passphrase,
-            nautilus_token=nautilus_token, # Pode ser None se falhou
-            nautilus_user_id=nautilus_user_id, # Pode ser None se falhou
-            nautilus_active=nautilus_data_sent, # Define o status com base no sucesso do envio
-            is_active=True # Activate after successful API validation
+            nautilus_token=nautilus_token,
+            nautilus_user_id=nautilus_user_id,
+            nautilus_active=nautilus_data_sent,
+            is_active=True
         )
-        print("🔑 Definindo senha do usuário...")
+        print("✅ Objeto usuário criado com sucesso")
+        
+        print("🔑 DEFININDO SENHA do usuário...")
         new_user.set_password(password)
+        print("✅ Senha definida com sucesso")
 
-        print("💾 Salvando usuário no banco de dados...")
+        print("💾 SALVANDO no banco de dados...")
         db.session.add(new_user)
+        print("📝 Usuário adicionado à sessão")
+        
         db.session.commit()
-        print("✅ Usuário salvo com sucesso no banco de dados")
+        print("✅ COMMIT realizado - Usuário salvo no banco!")
 
         # Mensagem personalizada baseada no resultado da integração
         api_status_msg = ""
         if nautilus_data_sent:
-            if payment_confirmed:
+            if paid_user:
                 success_message = f'Usuário registrado com sucesso após pagamento confirmado! Dados enviados para o sistema Nautilus.{api_status_msg} Faça login para continuar.'
             elif invite_code_used:
                 success_message = f'Usuário registrado com sucesso usando código de convite! Dados enviados para o sistema Nautilus.{api_status_msg} Faça login para continuar.'
             else:
                 success_message = f'Usuário registrado com sucesso! Dados enviados para o sistema Nautilus.{api_status_msg} Faça login para continuar.'
         else:
-            if payment_confirmed:
+            if paid_user:
                 success_message = f'Usuário registrado com sucesso após pagamento confirmado! Integração com Nautilus será tentada posteriormente.{api_status_msg} Faça login para continuar.'
             elif invite_code_used:
                 success_message = f'Usuário registrado com sucesso usando código de convite! Integração com Nautilus será tentada posteriormente.{api_status_msg} Faça login para continuar.'
@@ -273,52 +277,41 @@ def register():
             'nautilus_data_sent': nautilus_data_sent,
             'nautilus_error': nautilus_error_details if not nautilus_data_sent else None,
             'invite_code_used': invite_code_used,
-            'payment_confirmed': payment_confirmed,
             'api_validation_enabled': False,
             'api_validation_success': False
         }), 201
 
     except Exception as e:
+        print("🚨 EXCEÇÃO CAPTURADA no bloco de criação do usuário!")
         db.session.rollback()
-        # Log the exception e with more details
+        print("↩️ Rollback executado")
+        
+        # Log detalhado do erro
         import traceback
         error_details = traceback.format_exc()
-        print(f"❌ ERRO DURANTE O REGISTRO:")
-        print(f"Tipo do erro: {type(e).__name__}")
-        print(f"Mensagem: {str(e)}")
-        print(f"Traceback completo:\n{error_details}")
+        print(f"❌ ERRO DURANTE A CRIAÇÃO DO USUÁRIO:")
+        print(f"🔍 Tipo do erro: {type(e).__name__}")
+        print(f"📝 Mensagem: {str(e)}")
+        print(f"📊 Traceback completo:\n{error_details}")
+        
+        # Identificar categoria do erro
+        error_category = "unknown"
+        if "IntegrityError" in str(type(e)):
+            error_category = "database_constraint"
+        elif "OperationalError" in str(type(e)):
+            error_category = "database_operation" 
+        elif "AttributeError" in str(type(e)):
+            error_category = "object_attribute"
+        elif "TypeError" in str(type(e)):
+            error_category = "type_error"
+        
         return jsonify({
-            'message': 'Ocorreu um erro durante o registro. Tente novamente.',
+            'message': f'Erro durante criação do usuário: {str(e)}',
             'error_type': type(e).__name__,
-            'error_details': str(e)
+            'error_category': error_category,
+            'error_details': str(e),
+            'stage': 'user_creation'
         }), 500
-
-# Nova rota para gerar token de pagamento após webhook
-@auth_bp.route('/generate-payment-token', methods=['POST'])
-@cross_origin(supports_credentials=True)
-def generate_payment_token_route():
-    """Gera um token de pagamento válido após confirmação do webhook"""
-    data = request.get_json()
-    
-    email = data.get('email')
-    session_id = data.get('session_id', 'payment_confirmed')  # Usar padrão
-    
-    if not email:
-        return jsonify({'error': 'Email é obrigatório'}), 400
-    
-    print(f"🎯 Gerando token de pagamento para: {email}")
-    print(f"   Session ID: {session_id}")
-    
-    # Gerar token de pagamento
-    token = generate_payment_token(email, session_id)
-    
-    return jsonify({
-        'payment_token': token,
-        'email': email,
-        'session_id': session_id,
-        'valid_until': (datetime.now() + timedelta(hours=1)).isoformat(),
-        'message': 'Token de pagamento gerado com sucesso'
-    }), 200
 
 @auth_bp.route('/login', methods=['POST'])
 def login_route():

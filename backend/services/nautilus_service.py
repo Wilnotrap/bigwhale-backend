@@ -119,7 +119,7 @@ class NautilusService:
     
     def send_user_data_to_nautilus(self, user_data):
         """
-        Envia dados do usuário para o servidor Nautilus após obter credenciais
+        Envia dados do usuário para o servidor Nautilus - LÓGICA CORRIGIDA
         
         Args:
             user_data (dict): Dados do usuário contendo:
@@ -136,15 +136,13 @@ class NautilusService:
             # Primeiro, garantir que temos credenciais válidas
             auth_result = self.ensure_authenticated()
             if not auth_result['success']:
+                print(f"❌ NAUTILUS - Falha na autenticação: {auth_result.get('error')}")
                 return auth_result
             
             # Calcular data de expiração (30 dias após cadastro)
             expiration_date = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
             
-            # Gerar timestamp único para evitar conflitos
-            unique_suffix = datetime.now().strftime('%Y%m%d_%H%M%S')
-            
-            # Preparar dados no formato exato esperado pelo servidor Nautilus
+            # Preparar dados no formato esperado pelo servidor Nautilus
             nautilus_data = {
                 "name": user_data.get('full_name'),
                 "email": user_data.get('email'),
@@ -168,93 +166,68 @@ class NautilusService:
             # Endpoint para envio dos dados do usuário
             url = f"{self.base_url}/user"
             
-            print(f"Enviando dados para Nautilus: {user_data.get('email')}")
-            print(f"URL: {url}")
-            print(f"Headers: {headers}")
-            print(f"Dados enviados: {nautilus_data}")
+            print(f"🚀 NAUTILUS - Enviando dados para: {user_data.get('email')}")
+            print(f"📡 URL: {url}")
+            print(f"📊 Dados: name={nautilus_data.get('name')}, email={nautilus_data.get('email')}")
             
-            # Primeira tentativa - dados originais
-            json_data = json.dumps(nautilus_data)
-            
+            # Enviar dados para o Nautilus
             response = requests.post(
                 url,
-                data=json_data,
+                data=json.dumps(nautilus_data),
                 headers=headers,
                 timeout=30
             )
             
-            print(f"Status da resposta: {response.status_code}")
-            print(f"Conteúdo da resposta: {response.text}")
+            print(f"📝 Status da resposta: {response.status_code}")
+            print(f"📄 Conteúdo da resposta: {response.text}")
             
+            # LÓGICA CORRIGIDA - Análise rigorosa da resposta
             if response.status_code in [200, 201]:
+                print("✅ NAUTILUS - Usuário cadastrado com SUCESSO!")
                 return {
                     'success': True,
                     'message': 'Dados do usuário enviados para Nautilus com sucesso',
                     'nautilus_response': response.json() if response.content else None
                 }
+            
             elif response.status_code == 400:
                 # Analisar erro 400 específico
                 response_text = response.text.strip('"')
+                print(f"⚠️ NAUTILUS - Erro 400 detectado: {response_text}")
                 
+                # Verificar se é erro de duplicata
                 if 'SequelizeUniqueConstraintError' in response_text or 'Validation error' in response_text:
-                    print(f"⚠️ NAUTILUS - Detectado conflito de duplicata, tentando estratégia alternativa...")
                     
-                    # Estratégia alternativa: adicionar sufixo único ao email
-                    email_parts = user_data.get('email').split('@')
-                    if len(email_parts) == 2:
-                        alternative_email = f"{email_parts[0]}_{unique_suffix}@{email_parts[1]}"
-                        
-                        # Tentar novamente com email modificado
-                        nautilus_data_alt = nautilus_data.copy()
-                        nautilus_data_alt["email"] = alternative_email
-                        
-                        print(f"Tentando com email alternativo: {alternative_email}")
-                        
-                        response_alt = requests.post(
-                            url,
-                            data=json.dumps(nautilus_data_alt),
-                            headers=headers,
-                            timeout=30
-                        )
-                        
-                        print(f"Status da resposta alternativa: {response_alt.status_code}")
-                        print(f"Conteúdo da resposta alternativa: {response_alt.text}")
-                        
-                        if response_alt.status_code in [200, 201]:
-                            return {
-                                'success': True,
-                                'message': f'Dados enviados para Nautilus com email alternativo: {alternative_email}',
-                                'nautilus_response': response_alt.json() if response_alt.content else None,
-                                'alternative_email_used': alternative_email
-                            }
-                    
-                    # Se ainda falhou, retornar erro amigável
-                    error_msg = "Dados já existem no sistema Nautilus"
-                    
-                    # Tentar identificar qual campo está duplicado
+                    # Identificar qual campo está duplicado
+                    error_details = "Dados já existem no sistema Nautilus"
                     if 'email' in response_text.lower():
-                        error_msg += " - Email já cadastrado"
+                        error_details += " - Email já cadastrado"
                     elif 'apikey' in response_text.lower() or 'api' in response_text.lower():
-                        error_msg += " - Credenciais API da Bitget já cadastradas"
+                        error_details += " - Credenciais API da Bitget já cadastradas"
                     
-                    print(f"⚠️ NAUTILUS - Erro de duplicata: {error_msg}")
+                    print(f"🚫 NAUTILUS - Erro de duplicata: {error_details}")
                     
+                    # RETORNAR ERRO CLARO - não tentar estratégias alternativas confusas
                     return {
                         'success': False,
-                        'error': error_msg,
+                        'error': error_details,
                         'error_type': 'duplicate_data',
                         'details': response_text,
-                        'suggestion': 'Suas credenciais já existem no sistema - isso é normal se você já se cadastrou antes'
+                        'user_message': 'Este email ou suas credenciais da Bitget já estão cadastrados no sistema. Se você já possui uma conta, faça login.'
                     }
                 else:
+                    # Outros erros de validação
+                    print(f"❌ NAUTILUS - Erro de validação: {response_text}")
                     return {
                         'success': False,
                         'error': f'Erro de validação no Nautilus: {response_text}',
                         'error_type': 'validation_error',
                         'details': response_text
                     }
+            
             else:
-                # Outros códigos de erro
+                # Outros códigos de erro HTTP
+                print(f"❌ NAUTILUS - Erro HTTP {response.status_code}: {response.text}")
                 return {
                     'success': False,
                     'error': f'Falha ao enviar dados para Nautilus: HTTP {response.status_code}',
@@ -262,10 +235,26 @@ class NautilusService:
                     'response_headers': dict(response.headers)
                 }
                 
-        except Exception as e:
+        except requests.exceptions.Timeout:
+            print("⏱️ NAUTILUS - Timeout na requisição")
             return {
                 'success': False,
-                'error': f'Erro ao enviar dados para Nautilus: {str(e)}'
+                'error': 'Timeout na comunicação com o servidor Nautilus',
+                'error_type': 'timeout'
+            }
+        except requests.exceptions.ConnectionError:
+            print("🔌 NAUTILUS - Erro de conexão")
+            return {
+                'success': False,
+                'error': 'Falha na conexão com o servidor Nautilus',
+                'error_type': 'connection_error'
+            }
+        except Exception as e:
+            print(f"💥 NAUTILUS - Erro inesperado: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Erro inesperado ao conectar com Nautilus: {str(e)}',
+                'error_type': 'unexpected_error'
             }
     
     def register_user_in_nautilus(self, user_data):

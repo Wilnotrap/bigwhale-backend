@@ -1,6 +1,6 @@
 // frontend/src/App.js
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline, Box } from '@mui/material';
 import { ToastContainer } from 'react-toastify';
@@ -8,7 +8,8 @@ import 'react-toastify/dist/ReactToastify.css';
 
 // Componentes
 import Login from './components/Auth/Login';
-import Register from './components/Auth/Register';
+import RegisterInvite from './components/Auth/RegisterInvite'; // Renomeado
+import RegisterPayment from './components/Auth/RegisterPayment'; // Novo componente
 import PaymentSuccess from './components/PaymentSuccess';
 import Dashboard from './components/Dashboard/Dashboard';
 import AdminDashboard from './components/Admin/AdminDashboard';
@@ -92,12 +93,25 @@ const setupKeepAlive = () => {
   setInterval(keepAlive, 12 * 60 * 1000);
 };
 
-const AppContent = () => {
+// Componente para as rotas (deve estar dentro do Router)
+const AppRoutes = () => {
   const { user, loading } = useAuth();
+  const location = useLocation(); // Agora está dentro do contexto do Router
 
   // Função para detectar se o usuário é admin
   const isAdmin = (user) => {
     return user?.email === 'willian@lexxusadm.com.br';
+  };
+
+  // Função para detectar se o usuário está no fluxo de pagamento
+  const isPaymentFlow = () => {
+    const urlParams = new URLSearchParams(location.search);
+    return (
+      urlParams.get('payment_success') === 'true' ||
+      urlParams.get('payment_confirmed') === 'true' ||
+      urlParams.get('payment_completed') === 'true' ||
+      urlParams.get('session_id') !== null
+    );
   };
 
   if (loading) {
@@ -153,81 +167,76 @@ const AppContent = () => {
   }
 
   return (
-    <Router
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-      }}
-    >
-      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-        <Box 
-          component="main" 
-          sx={{ 
-            flexGrow: 1, 
-            bgcolor: 'background.default'
-          }}
-        >
-          <Routes>
-            <Route 
-              path="/login" 
-              element={
-                user ? (isAdmin(user) ? <Navigate to="/admin" /> : <Navigate to="/dashboard" />) : <Login />
-              } 
-            />
-            <Route 
-              path="/register" 
-              element={
-                user ? (isAdmin(user) ? <Navigate to="/admin" /> : <Navigate to="/dashboard" />) : <Register />
-              } 
-            />
-            <Route 
-              path="/payment-success" 
-              element={<PaymentSuccess />} 
-            />
-            <Route 
-              path="/admin" 
-              element={
-                user && isAdmin(user) ? <AdminDashboard user={user} /> : <Navigate to="/login" />
-              } 
-            />
-            <Route 
-              path="/admin/dashboard" 
-              element={
-                user && isAdmin(user) ? <NewAdminDashboard /> : <Navigate to="/login" />
-              } 
-            />
-            <Route 
-              path="/admin/user/:userId/dashboard" 
-              element={
-                user && isAdmin(user) ? <UserDashboardView /> : <Navigate to="/login" />
-              } 
-            />
-            <Route 
-              path="/admin/user/:userId/trades" 
-              element={
-                user && isAdmin(user) ? <UserTrades /> : <Navigate to="/login" />
-              } 
-            />
-            <Route 
-              path="/admin/user/:userId/stats" 
-              element={
-                user && isAdmin(user) ? <UserStats /> : <Navigate to="/login" />
-              } 
-            />
-            <Route 
-              path="/dashboard" 
-              element={
-                user ? <Dashboard user={user} /> : <Navigate to="/login" />
-              } 
-            />
-            <Route 
-              path="/" 
-              element={
-                user ? (isAdmin(user) ? <Navigate to="/admin" /> : <Navigate to="/dashboard" />) : <Navigate to="/login" />
-              } 
-            />
-          </Routes>
-        </Box>
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <Box 
+        component="main" 
+        sx={{ 
+          flexGrow: 1, 
+          bgcolor: 'background.default'
+        }}
+      >
+        <Routes>
+          <Route 
+            path="/login" 
+            element={
+              user ? (isAdmin(user) ? <Navigate to="/admin" /> : <Navigate to="/dashboard" />) : <Login />
+            } 
+          />
+          <Route 
+            path="/register" 
+            element={
+              user ? (isAdmin(user) ? <Navigate to="/admin" /> : <Navigate to="/dashboard" />) : (
+                isPaymentFlow() ? <RegisterPayment /> : <RegisterInvite />
+              )
+            } 
+          />
+          <Route 
+            path="/payment-success" 
+            element={<PaymentSuccess />} 
+          />
+          <Route 
+            path="/admin" 
+            element={
+              user && isAdmin(user) ? <AdminDashboard user={user} /> : <Navigate to="/login" />
+            } 
+          />
+          <Route 
+            path="/admin/dashboard" 
+            element={
+              user && isAdmin(user) ? <NewAdminDashboard /> : <Navigate to="/login" />
+            } 
+          />
+          <Route 
+            path="/admin/user/:userId/dashboard" 
+            element={
+              user && isAdmin(user) ? <UserDashboardView /> : <Navigate to="/login" />
+            } 
+          />
+          <Route 
+            path="/admin/user/:userId/trades" 
+            element={
+              user && isAdmin(user) ? <UserTrades /> : <Navigate to="/login" />
+            } 
+          />
+          <Route 
+            path="/admin/user/:userId/stats" 
+            element={
+              user && isAdmin(user) ? <UserStats /> : <Navigate to="/login" />
+            } 
+          />
+          <Route 
+            path="/dashboard" 
+            element={
+              user ? <Dashboard user={user} /> : <Navigate to="/login" />
+            } 
+          />
+          <Route 
+            path="/" 
+            element={
+              user ? (isAdmin(user) ? <Navigate to="/admin" /> : <Navigate to="/dashboard" />) : <Navigate to="/login" />
+            } 
+          />
+        </Routes>
       </Box>
       
       <ToastContainer
@@ -242,6 +251,20 @@ const AppContent = () => {
         pauseOnHover
         theme="dark"
       />
+    </Box>
+  );
+};
+
+// Componente principal corrigido
+const AppContent = () => {
+  return (
+    <Router
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
+      <AppRoutes />
     </Router>
   );
 };
