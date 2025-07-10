@@ -13,9 +13,6 @@ from services.nautilus_service import NautilusService
 from models.session import UserSession
 from utils.api_persistence import api_persistence
 import logging
-import hashlib
-import hmac
-from datetime import datetime, timedelta
 
 # Criar blueprint para autenticação
 auth_bp = Blueprint('auth', __name__)
@@ -28,73 +25,6 @@ logger = logging.getLogger(__name__)
 PASSWORD_REGEX = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_\-])[A-Za-z\d@$!%*?&_\-]{8,}$')
 
 INVITE_CODE = "Bigwhale81#"
-
-# Chave secreta para validar tokens de pagamento
-PAYMENT_TOKEN_SECRET = "bigwhale_payment_secret_2024"
-
-def generate_payment_token(email, session_id=None):
-    """Gera um token de pagamento válido"""
-    timestamp = datetime.now().timestamp()
-    
-    # Usar session_id padrão se não fornecido
-    if not session_id:
-        session_id = 'payment_confirmed'
-    
-    data = f"{email}:{session_id}:{timestamp}"
-    token = hmac.new(
-        PAYMENT_TOKEN_SECRET.encode('utf-8'),
-        data.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
-    
-    print(f"🔑 Token gerado para {email} com session_id: {session_id}")
-    return f"{token}:{timestamp}"
-
-def verify_payment_token(token, email):
-    """Verifica se o token de pagamento é válido"""
-    try:
-        if not token or ':' not in token:
-            return False
-            
-        # Separar o token em partes: hash:timestamp
-        token_hash, timestamp_str = token.rsplit(':', 1)
-        timestamp = float(timestamp_str)
-        
-        # Verificar se o token não expirou (válido por 1 hora)
-        if datetime.now().timestamp() - timestamp > 3600:
-            return False
-            
-        # CORREÇÃO: Simplificar validação
-        # Aceitar tokens gerados para este email e timestamp
-        # O session_id pode ser qualquer string válida
-        
-        # Testar formatos comuns conhecidos
-        common_session_ids = [
-            'payment_confirmed', 
-            'cs_test_simulate',
-            'test123',
-            'payment_success'
-        ]
-        
-        for session_id in common_session_ids:
-            expected_data = f"{email}:{session_id}:{timestamp}"
-            expected_token = hmac.new(
-                PAYMENT_TOKEN_SECRET.encode('utf-8'),
-                expected_data.encode('utf-8'),
-                hashlib.sha256
-            ).hexdigest()
-            
-            if hmac.compare_digest(token_hash, expected_token):
-                print(f"✅ Token válido encontrado com session_id: {session_id}")
-                return True
-        
-        # Se não encontrou match, rejeitar por segurança
-        print(f"❌ Token inválido - não encontrou match para email: {email}")
-        return False
-        
-    except Exception as e:
-        print(f"❌ Erro ao validar token: {e}")
-        return False
 
 # Função para validar complexidade da senha
 def validate_password_complexity(password):
@@ -128,7 +58,6 @@ def register():
     bitget_api_secret = data.get('bitget_api_secret')
     bitget_passphrase = data.get('bitget_passphrase')
     invite_code_attempt = data.get('invite_code') # Novo campo para o código de convite
-    payment_token = data.get('payment_token') # Token de pagamento confirmado
 
     valor_entrada_padrao = data.get('valor_entrada_padrao', '')
     percentual_entrada_padrao = data.get('percentual_entrada_padrao', '')
@@ -144,21 +73,13 @@ def register():
     if User.query.filter_by(email=email).first():
         return jsonify({'message': 'Endereço de email já registrado'}), 409 # Conflict
 
-    # --- Verificação do Código de Convite OU Token de Pagamento ---
+    # --- Verificação do Código de Convite (OBRIGATÓRIA) ---
     invite_code_used = bool(invite_code_attempt and invite_code_attempt == INVITE_CODE)
-    payment_confirmed = bool(payment_token and verify_payment_token(payment_token, email))
+    if not invite_code_used:
+        print(f"❌ Tentativa de registro sem código de convite válido: '{invite_code_attempt}'")
+        return jsonify({'message': 'Código de convite obrigatório e inválido. Verifique se digitou corretamente.'}), 403
     
-    # Aceitar registro se tiver código de convite válido OU pagamento confirmado
-    if not invite_code_used and not payment_confirmed:
-        print(f"❌ Tentativa de registro sem código de convite válido ou pagamento confirmado")
-        print(f"   Código de convite: '{invite_code_attempt}'")
-        print(f"   Token de pagamento: {'Válido' if payment_token else 'Ausente'}")
-        return jsonify({'message': 'Código de convite obrigatório e inválido OU pagamento não confirmado. Verifique se digitou corretamente ou realize o pagamento.'}), 403
-    
-    if payment_confirmed:
-        print(f"✅ Registro autorizado por pagamento confirmado para: {email}")
-    else:
-        print(f"✅ Código de convite válido fornecido: {invite_code_attempt}")
+    print(f"✅ Código de convite válido fornecido: {invite_code_attempt}")
 
     # --- INTEGRAÇÃO NAUTILUS (OBRIGATÓRIA) ---
     # Tenta enviar os dados para o Nautilus antes de criar o usuário local.
@@ -252,16 +173,12 @@ def register():
         # Mensagem personalizada baseada no resultado da integração
         api_status_msg = ""
         if nautilus_data_sent:
-            if payment_confirmed:
-                success_message = f'Usuário registrado com sucesso após pagamento confirmado! Dados enviados para o sistema Nautilus.{api_status_msg} Faça login para continuar.'
-            elif invite_code_used:
+            if invite_code_used:
                 success_message = f'Usuário registrado com sucesso usando código de convite! Dados enviados para o sistema Nautilus.{api_status_msg} Faça login para continuar.'
             else:
                 success_message = f'Usuário registrado com sucesso! Dados enviados para o sistema Nautilus.{api_status_msg} Faça login para continuar.'
         else:
-            if payment_confirmed:
-                success_message = f'Usuário registrado com sucesso após pagamento confirmado! Integração com Nautilus será tentada posteriormente.{api_status_msg} Faça login para continuar.'
-            elif invite_code_used:
+            if invite_code_used:
                 success_message = f'Usuário registrado com sucesso usando código de convite! Integração com Nautilus será tentada posteriormente.{api_status_msg} Faça login para continuar.'
             else:
                 success_message = f'Usuário registrado com sucesso! Integração com Nautilus será tentada posteriormente.{api_status_msg} Faça login para continuar.'
@@ -273,7 +190,6 @@ def register():
             'nautilus_data_sent': nautilus_data_sent,
             'nautilus_error': nautilus_error_details if not nautilus_data_sent else None,
             'invite_code_used': invite_code_used,
-            'payment_confirmed': payment_confirmed,
             'api_validation_enabled': False,
             'api_validation_success': False
         }), 201
@@ -292,33 +208,6 @@ def register():
             'error_type': type(e).__name__,
             'error_details': str(e)
         }), 500
-
-# Nova rota para gerar token de pagamento após webhook
-@auth_bp.route('/generate-payment-token', methods=['POST'])
-@cross_origin(supports_credentials=True)
-def generate_payment_token_route():
-    """Gera um token de pagamento válido após confirmação do webhook"""
-    data = request.get_json()
-    
-    email = data.get('email')
-    session_id = data.get('session_id', 'payment_confirmed')  # Usar padrão
-    
-    if not email:
-        return jsonify({'error': 'Email é obrigatório'}), 400
-    
-    print(f"🎯 Gerando token de pagamento para: {email}")
-    print(f"   Session ID: {session_id}")
-    
-    # Gerar token de pagamento
-    token = generate_payment_token(email, session_id)
-    
-    return jsonify({
-        'payment_token': token,
-        'email': email,
-        'session_id': session_id,
-        'valid_until': (datetime.now() + timedelta(hours=1)).isoformat(),
-        'message': 'Token de pagamento gerado com sucesso'
-    }), 200
 
 @auth_bp.route('/login', methods=['POST'])
 def login_route():
