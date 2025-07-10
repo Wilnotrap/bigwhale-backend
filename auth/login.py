@@ -140,36 +140,26 @@ def login():
             db.session.rollback()
             return jsonify({'message': 'Erro interno no servidor - sessão'}), 500
 
-        # Descriptografar credenciais da API
-        api_key = None
-        api_secret = None
-        passphrase = None
+        # Carregar credenciais da API usando o novo serviço
+        from services.api_credentials_service import APICredentialsService
+        api_service = APICredentialsService()
+        
+        api_credentials = None
+        api_configured = False
         
         try:
-            current_app.logger.info("Iniciando descriptografia de credenciais")
+            current_app.logger.info("Carregando credenciais da API com o serviço")
+            api_credentials = api_service.load_user_credentials(user_id=user.id)
             
-            if user.bitget_api_key_encrypted:
-                api_key = decrypt_api_key(user.bitget_api_key_encrypted)
-                current_app.logger.info(f"API Key descriptografada: {bool(api_key)}")
-            
-            if user.bitget_api_secret_encrypted:
-                api_secret = decrypt_api_key(user.bitget_api_secret_encrypted)
-                current_app.logger.info(f"API Secret descriptografado: {bool(api_secret)}")
+            if api_credentials and api_credentials.get('has_credentials') and api_credentials.get('is_valid'):
+                api_configured = True
+                current_app.logger.info(f"Credenciais da API carregadas com sucesso para usuário {user.id}")
+            else:
+                current_app.logger.info(f"Usuário {user.id} não possui credenciais da API configuradas ou válidas")
                 
-            if user.bitget_passphrase_encrypted:
-                passphrase = decrypt_api_key(user.bitget_passphrase_encrypted)
-                current_app.logger.info(f"Passphrase descriptografado: {bool(passphrase)}")
-                
-        except Exception as decrypt_error:
-            current_app.logger.error(f"Erro na descriptografia: {str(decrypt_error)}")
-            # Não falhar o login por erro de descriptografia
-            api_key = None
-            api_secret = None
-            passphrase = None
-
-        # Verificar se as credenciais da API estão configuradas
-        api_configured = bool(api_key and api_secret and passphrase)
-        current_app.logger.info(f"API configurada: {api_configured}")
+        except Exception as api_error:
+            current_app.logger.error(f"Erro ao carregar credenciais da API: {str(api_error)}")
+            # Não falhar o login por erro nas credenciais da API
 
         # Definir dados da sessão Flask
         try:
@@ -181,7 +171,13 @@ def login():
             current_app.logger.error(f"Erro ao configurar sessão Flask: {str(flask_session_error)}")
             # Continuar mesmo com erro na sessão Flask
 
-        # Preparar resposta
+        # Preparar resposta com informações detalhadas da API
+        api_status = api_service.get_user_api_status(user.id) if api_service else {
+            'configured': api_configured,
+            'valid': False,
+            'status': 'unknown'
+        }
+        
         response_data = {
             'message': 'Login realizado com sucesso',
             'user': {
@@ -191,9 +187,17 @@ def login():
                 'is_admin': user.is_admin,
                 'is_active': user.is_active,
                 'api_configured': api_configured,
+                'api_status': api_status,
                 'session_token': new_session.session_token
             }
         }
+        
+        # Incluir credenciais na resposta se carregadas com sucesso (apenas para debug em desenvolvimento)
+        if api_credentials and api_credentials.get('is_valid'):
+            response_data['api_credentials_loaded'] = True
+            current_app.logger.info(f"Credenciais da API incluídas na resposta do login para usuário {user.id}")
+        else:
+            response_data['api_credentials_loaded'] = False
         
         current_app.logger.info("=== LOGIN CONCLUÍDO COM SUCESSO ===")
         return jsonify(response_data), 200
