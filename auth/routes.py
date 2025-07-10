@@ -160,15 +160,27 @@ def register():
             print(f"Credenciais Nautilus obtidas com sucesso. Token: {nautilus_token[:20] if nautilus_token else 'N/A'}..., User ID: {nautilus_user_id}")
             
             # 2. Enviar dados do usuário para o Nautilus
-            print("Enviando dados do usuário para o servidor Nautilus...")
+            print("📤 ENDPOINT - Enviando dados do usuário para o servidor Nautilus...")
             nautilus_send_result = nautilus_service.send_user_data_to_nautilus(user_data_for_nautilus)
+            
+            print("=" * 60)
+            print("🔍 ENDPOINT - RESULTADO DO NAUTILUS:")
+            print("=" * 60)
+            print(f"📊 Success: {nautilus_send_result.get('success')}")
+            print(f"📝 Message: {nautilus_send_result.get('message')}")
+            print(f"❌ Error: {nautilus_send_result.get('error')}")
+            print(f"🏷️ Error Type: {nautilus_send_result.get('error_type')}")
+            print(f"📄 Details: {nautilus_send_result.get('details')}")
+            print(f"🆔 Nautilus User ID: {nautilus_send_result.get('nautilus_user_created_id')}")
+            print("=" * 60)
             
             if nautilus_send_result['success']:
                 nautilus_data_sent = True
-                print("✅ Dados do usuário enviados para Nautilus com sucesso!")
+                print("✅ ENDPOINT - Dados do usuário enviados para Nautilus com SUCESSO!")
+                print("🎯 ENDPOINT - Continuando para criação do usuário local...")
             else:
                 nautilus_error_details = nautilus_send_result.get('error')
-                print(f"❌ FALHA CRÍTICA ao enviar dados para Nautilus: {nautilus_error_details}")
+                print(f"❌ ENDPOINT - FALHA ao enviar dados para Nautilus: {nautilus_error_details}")
                 
                 # Melhorar mensagem para casos de duplicata
                 if "já existem no sistema Nautilus" in nautilus_error_details:
@@ -178,6 +190,7 @@ def register():
                     user_message = f'Erro na comunicação com o servidor de integração: {nautilus_error_details}'
                     error_code = 500
                 
+                print(f"🚨 ENDPOINT - Retornando erro {error_code} para o frontend")
                 return jsonify({
                     'message': user_message,
                     'error_type': 'nautilus_send_error',
