@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # Password complexity: 8+ chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
 PASSWORD_REGEX = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&_\-])[A-Za-z\d@$!%*?&_\-]{8,}$')
 
-INVITE_CODE = "Raikamaster202021@"
+INVITE_CODE = "Bigwhale81#"
 
 # Função para validar complexidade da senha
 def validate_password_complexity(password):
