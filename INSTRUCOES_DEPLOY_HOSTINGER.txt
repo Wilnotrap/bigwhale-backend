@@ -1,0 +1,101 @@
+🚀 INSTRUÇÕES DE DEPLOY - NAUTILUS AUTOMAÇÃO (HOSTINGER)
+=======================================================
+
+📦 Arquivo gerado: nautilus-deploy-20250701-122435.zip
+🌐 Domínio configurado: bwhale.site
+
+📋 PRÓXIMOS PASSOS:
+
+1. ACESSE O PAINEL HOSTINGER
+   - Faça login em sua conta Hostinger
+   - Acesse o hPanel (painel principal)
+   - Ou acesse o cPanel se disponível
+
+2. BACKUP (IMPORTANTE!)
+   - Faça backup dos arquivos atuais
+   - hPanel → Gerenciador de Arquivos → public_html
+   - Selecione tudo → Compress → Baixe o backup
+
+3. LIMPAR PUBLIC_HTML
+   - Gerenciador de Arquivos → public_html/
+   - Selecione todos os arquivos (exceto .well-known se existir)
+   - Delete os arquivos antigos
+
+4. UPLOAD DO ARQUIVO ZIP
+   - No Gerenciador de Arquivos, clique em "Upload"
+   - Selecione o arquivo: nautilus-deploy-20250701-122435.zip
+   - Aguarde o upload (limite: 256MB no hPanel)
+
+5. EXTRAIR ARQUIVOS
+   - Clique com botão direito no arquivo ZIP
+   - Selecione "Extract" (Extrair)
+   - Extrair para: public_html/
+   - Confirme a extração
+
+6. CONFIGURAR PERMISSÕES
+   - Navegue até public_html/api/
+   - Clique com botão direito na pasta "api"
+   - Permissions → 755 (rwxr-xr-x)
+   - Marque "Recurse into subdirectories"
+
+7. CONFIGURAR PYTHON (se disponível)
+   
+   OPÇÃO A - VPS/Cloud com SSH:
+   `
+   cd public_html/api
+   pip install -r requirements.txt
+   `
+   
+   OPÇÃO B - Python App Manager:
+   - hPanel → Python → Nova Aplicação
+   - Diretório: public_html/api
+   - Instalar dependências do requirements.txt
+   
+   OPÇÃO C - Hospedagem Compartilhada:
+   - Verifique se Python está disponível
+   - Entre em contato com suporte se necessário
+
+8. ATIVAR SSL
+   - hPanel → SSL → Ativar SSL gratuito
+   - Aguarde ativação (até 24h)
+   - Teste: https://bwhale.site
+
+9. TESTAR APLICAÇÃO
+   - Frontend: https://bwhale.site
+   - API: https://bwhale.site/api/health
+   - Teste login e funcionalidades
+
+🔧 TROUBLESHOOTING:
+
+- Erro 500: Verifique Error Logs no hPanel
+- API não responde: Confirme permissões e Python
+- CORS Error: Verifique configuração de domínio
+- SSL não funciona: Aguarde 24h ou contate suporte
+
+📞 SUPORTE:
+- Hostinger: Chat 24/7 no hPanel
+- Documentação: DEPLOY_HOSTINGER_GUIDE.md
+- Base de Conhecimento: support.hostinger.com
+
+✅ CHECKLIST FINAL:
+- [ ] Backup realizado
+- [ ] Arquivo ZIP enviado e extraído
+- [ ] Permissões configuradas (755 para api/)
+- [ ] Python configurado (se disponível)
+- [ ] SSL ativado
+- [ ] Frontend funcionando (https://bwhale.site)
+- [ ] API respondendo (https://bwhale.site/api/health)
+- [ ] Login testado
+- [ ] Logs verificados
+
+🎉 SUCESSO!
+Seu Nautilus Automação está rodando no Hostinger!
+
+📱 URLs importantes:
+- Site: https://bwhale.site
+- API: https://bwhale.site/api
+- Health: https://bwhale.site/api/health
+
+---
+Deploy gerado em: 01/07/2025 12:24:35
+Hostinger Deploy Script v1.0 - Nautilus Automação

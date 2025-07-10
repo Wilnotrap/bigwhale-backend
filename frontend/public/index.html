@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f0b90b" />
+    <meta name="description" content="Nautilus Automação - Plataforma de Trading Profissional para Bitget" />
+    <meta name="keywords" content="trading, bitget, crypto, bitcoin, futures, análise" />
+    <meta name="author" content="Nautilus Automação" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://bitnova.app/" />
+    <meta property="og:title" content="Nautilus Automação - Trading Profissional" />
+    <meta property="og:description" content="Plataforma avançada de trading para Bitget com análises em tempo real" />
+    <meta property="og:image" content="%PUBLIC_URL%/og-image.png" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://bitnova.app/" />
+    <meta property="twitter:title" content="Nautilus Automação - Trading Profissional" />
+    <meta property="twitter:description" content="Plataforma avançada de trading para Bitget com análises em tempo real" />
+    <meta property="twitter:image" content="%PUBLIC_URL%/twitter-image.png" />
+    
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/favicon.svg">
+    <link rel="icon" type="image/png" href="%PUBLIC_URL%/favicon.png">
+    
+    <title>Nautilus Automação - Trading Profissional</title>
+    
+    <!-- Script para limpar erros de extensões do browser removido -->
+    
+    <style>
+      /* Loading screen styles */
+      #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, rgba(12, 12, 12, 0.6) 0%, rgba(26, 26, 26, 0.6) 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        transition: opacity 0.5s ease-out;
+      }
+      
+      #loading-screen.fade-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      .loading-logo {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #C0C0C0;
+        margin-bottom: 2rem;
+        font-family: 'Inter', sans-serif;
+      }
+      
+      .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 3px solid #333;
+        border-top: 3px solid #f0b90b;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      .loading-text {
+        color: #888;
+        margin-top: 1rem;
+        font-family: 'Inter', sans-serif;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      /* Prevent flash of unstyled content */
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background-color: rgba(12, 12, 12, 0.5);
+      }
+      
+      #root {
+        opacity: 0;
+        transition: opacity 0.3s ease-in;
+      }
+      
+      #root.loaded {
+        opacity: 1;
+      }
+
+      /* Melhorar acessibilidade - remover problemas com aria-hidden */
+      .loading-hidden {
+        visibility: hidden;
+        position: absolute;
+        left: -10000px;
+        top: auto;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>
+      <div style="
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background: rgba(12, 12, 12, 0.6);
+        color: #fff;
+        font-family: Inter, sans-serif;
+        text-align: center;
+        padding: 2rem;
+      ">
+        <h1 style="color: #C0C0C0; margin-bottom: 1rem;">Nautilus Automação</h1>
+        <p style="color: #888; margin-bottom: 2rem;">Você precisa habilitar o JavaScript para executar esta aplicação.</p>
+        <p style="color: #666; font-size: 0.9rem;">Por favor, habilite o JavaScript no seu navegador e recarregue a página.</p>
+      </div>
+    </noscript>
+    
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+      <div class="loading-logo">Nautilus Automação</div>
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Carregando plataforma...</div>
+    </div>
+    
+    <!-- React App Root -->
+    <div id="root"></div>
+    
+    <script>
+      // Remove loading screen when React app loads
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          const loadingScreen = document.getElementById('loading-screen');
+          const root = document.getElementById('root');
+          
+          if (loadingScreen && root) {
+            // Usar classe ao invés de aria-hidden para evitar problemas de acessibilidade
+            loadingScreen.classList.add('fade-out');
+            root.classList.add('loaded');
+            
+            setTimeout(function() {
+              // Mover para fora da tela ao invés de remover completamente
+              loadingScreen.classList.add('loading-hidden');
+              loadingScreen.style.display = 'none';
+            }, 500);
+          }
+        }, 100); // Reduced loading time to minimize double loading screens
+      });
+      
+      // Fallback: Remove loading screen after 5 seconds
+      setTimeout(function() {
+        const loadingScreen = document.getElementById('loading-screen');
+        const root = document.getElementById('root');
+        if (loadingScreen) {
+          loadingScreen.style.display = 'none';
+          if (root) {
+            root.classList.add('loaded');
+          }
+        }
+      }, 5000);
+
+      // Melhorar gestão de foco para acessibilidade
+      document.addEventListener('DOMContentLoaded', function() {
+        // Garantir que elementos interativos sejam acessíveis
+        const interactiveElements = document.querySelectorAll('button, [role="button"], input, select, textarea');
+        interactiveElements.forEach(function(element) {
+          if (element.hasAttribute('aria-hidden') && element.tabIndex !== -1) {
+            console.warn('Elemento interativo com aria-hidden detectado:', element);
+            // Remover aria-hidden de elementos focáveis
+            element.removeAttribute('aria-hidden');
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

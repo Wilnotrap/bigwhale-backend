@@ -1,0 +1,75 @@
+📋 CHECKLIST PRÉ-DEPLOY - NAUTILUS AUTOMAÇÃO
+==========================================
+
+🔍 VERIFICAÇÕES OBRIGATÓRIAS:
+
+[ ] 🔒 SEGURANÇA
+    [ ] Chaves secretas alteradas (.env.production)
+    [ ] CSP configurado corretamente
+    [ ] Headers de segurança ativados
+    [ ] Logs de debug desabilitados
+    [ ] Console.log removido do código
+
+[ ] 🚀 PERFORMANCE
+    [ ] Imagens otimizadas (execute optimize-assets.ps1)
+    [ ] Bundle analisado (npm run analyze)
+    [ ] Sourcemaps desabilitados
+    [ ] Lazy loading implementado
+    [ ] Code splitting configurado
+
+[ ] 🌐 CONFIGURAÇÃO
+    [ ] Domínio correto em todas as configurações
+    [ ] URLs da API atualizadas
+    [ ] CORS configurado corretamente
+    [ ] SSL/HTTPS configurado
+
+[ ] 🧪 TESTES
+    [ ] Testes unitários passando
+    [ ] Testes de integração passando
+    [ ] Build de produção funcionando
+    [ ] Aplicação testada localmente
+
+[ ] 📦 DEPLOY
+    [ ] Backup do site atual realizado
+    [ ] Dependências Python listadas
+    [ ] Arquivos .htaccess criados
+    [ ] Permissões configuradas
+
+[ ] 📊 MONITORAMENTO
+    [ ] Health check endpoint funcionando
+    [ ] Error reporting configurado
+    [ ] Logs de produção configurados
+    [ ] Métricas de performance ativadas
+
+🔧 COMANDOS ÚTEIS:
+
+# Auditoria de segurança
+npm run security:audit
+
+# Build de produção
+npm run build:secure
+
+# Análise do bundle
+npm run analyze
+
+# Otimização de assets
+.\optimize-assets.ps1
+
+# Deploy automatizado
+.\deploy-godaddy.ps1
+
+# Verificação pós-deploy
+.\verify-deploy.ps1
+
+✅ APÓS O DEPLOY:
+
+[ ] Site acessível via HTTPS
+[ ] API respondendo corretamente
+[ ] Login funcionando
+[ ] Dashboard carregando
+[ ] Sem erros no console
+[ ] Performance satisfatória
+[ ] Headers de segurança ativos
+[ ] SSL válido
+
+🎉 DEPLOY CONCLUÍDO COM SUCESSO!

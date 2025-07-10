@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Webhook - Diagnóstico</title>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            text-align: center;
+            color: #00ff88;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            border-left: 4px solid #00ff88;
+        }
+        .test-button {
+            background: #00ff88;
+            color: #1a1a2e;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+        .test-button:hover {
+            background: #00cc6a;
+            transform: translateY(-2px);
+        }
+        .result {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success {
+            color: #00ff88;
+        }
+        .error {
+            color: #ff4444;
+        }
+        .warning {
+            color: #ffaa00;
+        }
+        .info {
+            color: #00aaff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Teste Webhook - Diagnóstico</h1>
+        
+        <div class="test-section">
+            <h3>1. Testar Endpoint do Webhook</h3>
+            <p>Verificar se o backend está respondendo:</p>
+            <button class="test-button" onclick="testWebhookEndpoint()">Testar /api/webhook/test</button>
+            <button class="test-button" onclick="testWebhookStatus()">Testar /api/webhook/status</button>
+            <div id="webhook-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Testar Health Check</h3>
+            <p>Verificar se o backend está acordado:</p>
+            <button class="test-button" onclick="testHealthCheck()">Testar /api/health</button>
+            <div id="health-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Testar Redirecionamento</h3>
+            <p>Verificar se o redirecionamento automático funciona:</p>
+            <button class="test-button" onclick="testPaymentSuccess()">Simular Pagamento Sucesso</button>
+            <button class="test-button" onclick="testPaymentCancel()">Simular Pagamento Cancelado</button>
+            <div id="redirect-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Informações do Sistema</h3>
+            <div id="system-info" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>5. Logs do Console</h3>
+            <p>Abra o console do navegador (F12) para ver logs detalhados.</p>
+            <div id="console-logs" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://bigwhale-backend.onrender.com';
+        
+        // Capturar logs do console
+        const originalLog = console.log;
+        const originalError = console.error;
+        let consoleLogs = [];
+        
+        console.log = function(...args) {
+            consoleLogs.push({type: 'log', message: args.join(' '), time: new Date().toISOString()});
+            originalLog.apply(console, args);
+            updateConsoleLogs();
+        };
+        
+        console.error = function(...args) {
+            consoleLogs.push({type: 'error', message: args.join(' '), time: new Date().toISOString()});
+            originalError.apply(console, args);
+            updateConsoleLogs();
+        };
+        
+        function updateConsoleLogs() {
+            const logsDiv = document.getElementById('console-logs');
+            logsDiv.innerHTML = consoleLogs.slice(-10).map(log => 
+                `<span class="${log.type === 'error' ? 'error' : 'info'}">[${log.time.split('T')[1].split('.')[0]}] ${log.message}</span>`
+            ).join('\n');
+        }
+        
+        async function testWebhookEndpoint() {
+            const resultDiv = document.getElementById('webhook-result');
+            resultDiv.innerHTML = '<span class="warning">Testando endpoint...</span>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/webhook/test`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<span class="success">✅ Webhook funcionando!</span>\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Erro: ${response.status}</span>\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Erro de conexão: ${error.message}</span>`;
+            }
+        }
+        
+        async function testWebhookStatus() {
+            const resultDiv = document.getElementById('webhook-result');
+            resultDiv.innerHTML = '<span class="warning">Testando status...</span>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/webhook/status`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<span class="success">✅ Status OK!</span>\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Erro: ${response.status}</span>\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Erro de conexão: ${error.message}</span>`;
+            }
+        }
+        
+        async function testHealthCheck() {
+            const resultDiv = document.getElementById('health-result');
+            resultDiv.innerHTML = '<span class="warning">Testando health check...</span>';
+            
+            try {
+                const startTime = Date.now();
+                const response = await fetch(`${API_BASE}/api/health`);
+                const endTime = Date.now();
+                const responseTime = endTime - startTime;
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<span class="success">✅ Backend acordado!</span>\nTempo de resposta: ${responseTime}ms\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">❌ Erro: ${response.status}</span>\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ Backend possivelmente dormindo: ${error.message}</span>`;
+            }
+        }
+        
+        function testPaymentSuccess() {
+            const resultDiv = document.getElementById('redirect-result');
+            resultDiv.innerHTML = '<span class="info">Redirecionando para teste de pagamento sucesso...</span>';
+            
+            // Simular parâmetros de retorno do Stripe
+            const testUrl = `${window.location.origin}/login?payment_success=true&session_id=test_session_123`;
+            
+            setTimeout(() => {
+                window.location.href = testUrl;
+            }, 1000);
+        }
+        
+        function testPaymentCancel() {
+            const resultDiv = document.getElementById('redirect-result');
+            resultDiv.innerHTML = '<span class="info">Redirecionando para teste de pagamento cancelado...</span>';
+            
+            const testUrl = `${window.location.origin}/login?payment_cancelled=true`;
+            
+            setTimeout(() => {
+                window.location.href = testUrl;
+            }, 1000);
+        }
+        
+        // Exibir informações do sistema
+        function showSystemInfo() {
+            const systemDiv = document.getElementById('system-info');
+            const info = {
+                'URL atual': window.location.href,
+                'User Agent': navigator.userAgent,
+                'Timestamp': new Date().toISOString(),
+                'API Base': API_BASE,
+                'Parâmetros URL': Object.fromEntries(new URLSearchParams(window.location.search))
+            };
+            
+            systemDiv.innerHTML = Object.entries(info)
+                .map(([key, value]) => `<span class="info">${key}:</span> ${typeof value === 'object' ? JSON.stringify(value) : value}`)
+                .join('\n');
+        }
+        
+        // Inicializar ao carregar a página
+        document.addEventListener('DOMContentLoaded', function() {
+            showSystemInfo();
+            console.log('🔍 Página de teste webhook carregada');
+        });
+    </script>
+</body>
+</html> 

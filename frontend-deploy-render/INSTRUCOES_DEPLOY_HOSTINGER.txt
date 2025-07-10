@@ -1,0 +1,103 @@
+🚀 INSTRUÇÕES DE DEPLOY PARA HOSTINGER
+===============================================
+
+📦 CONTEÚDO DESTA PASTA:
+Todos os arquivos necessários para fazer o upload no Hostinger estão organizados nesta pasta.
+
+🔧 CORREÇÕES INCLUÍDAS:
+- ✅ Correção do erro 500 no login
+- ✅ Melhorias no sistema de logging
+- ✅ Correção de importações duplicadas
+- ✅ Configuração robusta do Flask-Session
+- ✅ Aprimoramento do health check
+- ✅ Tratamento de erros aprimorado
+
+📋 PASSOS PARA DEPLOY:
+
+1. 🔐 ACESSO AO PAINEL HOSTINGER:
+   - Faça login no painel da Hostinger
+   - Acesse o File Manager ou use FTP/SFTP
+
+2. 🗂️ BACKUP (RECOMENDADO):
+   - Faça backup do conteúdo atual do public_html
+   - Renomeie a pasta atual para public_html_backup
+
+3. 🧹 LIMPEZA:
+   - Limpe completamente o diretório public_html
+   - Certifique-se de que está vazio
+
+4. 📤 UPLOAD DOS ARQUIVOS:
+   - Selecione TODOS os arquivos desta pasta
+   - Faça upload para o diretório public_html
+   - Mantenha a estrutura de pastas:
+     * Arquivos do frontend na raiz (index.html, static/, etc.)
+     * Backend na pasta api/
+
+5. ⚙️ CONFIGURAÇÃO DE PERMISSÕES:
+   - Defina permissões 755 para a pasta api/
+   - Defina permissões 644 para arquivos .py
+   - Defina permissões 644 para .htaccess
+
+6. 🐍 CONFIGURAÇÃO PYTHON:
+   - Acesse Python App Manager no painel Hostinger
+   - Crie uma nova aplicação Python
+   - Defina o diretório como: public_html/api
+   - Arquivo de entrada: app.py
+   - Versão Python: 3.11 ou superior
+
+7. 📦 INSTALAÇÃO DE DEPENDÊNCIAS:
+   - No terminal SSH ou Python App Manager:
+   - Execute: pip install -r requirements.txt
+
+8. 🔒 CONFIGURAÇÃO SSL:
+   - Ative o SSL gratuito no painel Hostinger
+   - Aguarde a propagação (pode levar até 24h)
+
+9. 🧪 TESTES:
+   - Acesse seu domínio
+   - Teste o login com credenciais válidas
+   - Verifique se a API responde em /api/health
+   - Teste as funcionalidades principais
+
+🔍 ESTRUTURA DE ARQUIVOS NO SERVIDOR:
+public_html/
+├── index.html (frontend)
+├── static/ (assets do React)
+├── favicon.ico
+├── manifest.json
+├── .htaccess (configurações principais)
+└── api/ (backend Python)
+    ├── app.py
+    ├── auth/
+    ├── models/
+    ├── services/
+    ├── utils/
+    ├── requirements.txt
+    └── .htaccess (configurações da API)
+
+⚠️ TROUBLESHOOTING:
+- Se erro 500: Verifique logs do Python no painel
+- Se erro 404: Verifique configuração do .htaccess
+- Se problemas de CORS: Verifique headers no .htaccess da API
+- Se login falha: Verifique conexão com banco de dados
+
+✅ CHECKLIST FINAL:
+□ Backup realizado
+□ Arquivos enviados
+□ Permissões configuradas
+□ Python App configurado
+□ Dependências instaladas
+□ SSL ativado
+□ Testes realizados
+□ Login funcionando
+□ API respondendo
+
+📞 SUPORTE:
+Em caso de problemas, verifique:
+1. Logs de erro no painel Hostinger
+2. Configurações do Python App Manager
+3. Permissões de arquivos e pastas
+4. Configurações de DNS e SSL
+
+🎉 DEPLOY CONCLUÍDO!
+Seu sistema Nautilus está pronto para uso na Hostinger!

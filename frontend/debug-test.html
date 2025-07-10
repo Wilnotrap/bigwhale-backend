@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Debug Test - Nautilus</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 5px;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        button {
+            background: #f0b90b;
+            color: black;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        #results {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Test - Nautilus Frontend</h1>
+    
+    <div class="test-section">
+        <h3>1. Teste de Conectividade com Backend</h3>
+        <button onclick="testBackendHealth()">Testar /api/health</button>
+        <button onclick="testBackendTest()">Testar /api/test</button>
+        <button onclick="testLogin()">Testar Login</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>2. Informações do Ambiente</h3>
+        <p><strong>URL Atual:</strong> <span id="currentUrl"></span></p>
+        <p><strong>User Agent:</strong> <span id="userAgent"></span></p>
+        <p><strong>Cookies:</strong> <span id="cookies"></span></p>
+    </div>
+    
+    <div class="test-section">
+        <h3>3. Teste de CORS</h3>
+        <button onclick="testCORS()">Testar CORS</button>
+    </div>
+    
+    <div id="results"></div>
+    
+    <script>
+        // Preencher informações do ambiente
+        document.getElementById('currentUrl').textContent = window.location.href;
+        document.getElementById('userAgent').textContent = navigator.userAgent;
+        document.getElementById('cookies').textContent = document.cookie || 'Nenhum cookie encontrado';
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '';
+            results.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            results.scrollTop = results.scrollHeight;
+        }
+        
+        async function testBackendHealth() {
+            log('🔍 Testando conectividade com /api/health...');
+            try {
+                const response = await fetch('https://bigwhale-backend.onrender.com/api/health', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Backend Health OK: ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    log(`❌ Backend Health Error: ${response.status} - ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro ao conectar com backend: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testBackendTest() {
+            log('🔍 Testando conectividade com /api/test...');
+            try {
+                const response = await fetch('https://bigwhale-backend.onrender.com/api/test', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Backend Test OK: ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    log(`❌ Backend Test Error: ${response.status} - ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro ao conectar com /api/test: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testLogin() {
+            log('🔍 Testando login com credenciais de teste...');
+            try {
+                const response = await fetch('https://bigwhale-backend.onrender.com/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        email: 'admin@bigwhale.com',
+                        password: 'Raikamaster1@'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Login OK: ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    const errorData = await response.text();
+                    log(`❌ Login Error: ${response.status} - ${errorData}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro no login: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testCORS() {
+            log('🔍 Testando CORS...');
+            try {
+                const response = await fetch('https://bigwhale-backend.onrender.com/api/health', {
+                    method: 'OPTIONS'
+                });
+                
+                log(`CORS Headers:`, 'info');
+                for (let [key, value] of response.headers.entries()) {
+                    if (key.toLowerCase().includes('cors') || key.toLowerCase().includes('access-control')) {
+                        log(`  ${key}: ${value}`, 'info');
+                    }
+                }
+                
+                if (response.ok) {
+                    log(`✅ CORS OK`, 'success');
+                } else {
+                    log(`⚠️ CORS pode ter problemas: ${response.status}`, 'warning');
+                }
+            } catch (error) {
+                log(`❌ Erro no teste CORS: ${error.message}`, 'error');
+            }
+        }
+        
+        // Executar testes automáticos ao carregar
+        window.addEventListener('load', function() {
+            log('🚀 Iniciando testes automáticos...');
+            setTimeout(testBackendHealth, 1000);
+            setTimeout(testBackendTest, 2000);
+            setTimeout(testCORS, 3000);
+        });
+    </script>
+</body>
+</html>

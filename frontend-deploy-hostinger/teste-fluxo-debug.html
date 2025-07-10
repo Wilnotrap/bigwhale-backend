@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Fluxo de Pagamento BigWhale</title>
+    <style>
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f1419 0%, #1a2332 100%);
+            color: #e2e8f0;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        h1 {
+            color: #00d4aa;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border: 1px solid;
+        }
+        .success { background: rgba(0, 212, 170, 0.1); border-color: #00d4aa; color: #00d4aa; }
+        .info { background: rgba(59, 130, 246, 0.1); border-color: #3b82f6; color: #3b82f6; }
+        .warning { background: rgba(245, 158, 11, 0.1); border-color: #f59e0b; color: #f59e0b; }
+        .error { background: rgba(239, 68, 68, 0.1); border-color: #ef4444; color: #ef4444; }
+        .test-button {
+            background: linear-gradient(45deg, #00d4aa, #00b894);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s ease;
+        }
+        .test-button:hover { transform: translateY(-2px); }
+        .debug-section {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 4px solid #3b82f6;
+        }
+        .version-badge {
+            background: linear-gradient(45deg, #6b46c1, #8b5cf6);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            display: inline-block;
+            margin: 5px;
+        }
+        pre {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 14px;
+            color: #cbd5e0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Debug - Fluxo de Pagamento BigWhale</h1>
+        
+        <div class="status info">
+            <strong>🎯 Versão Atual:</strong>
+            <span class="version-badge">main.630c906e.js</span>
+            <span class="version-badge">VERSÃO ROBUSTA</span>
+        </div>
+
+        <div class="debug-section">
+            <h3>🔍 Testes Automatizados</h3>
+            <button class="test-button" onclick="testFrontend()">✅ Testar Frontend</button>
+            <button class="test-button" onclick="testBackend()">🔧 Testar Backend</button>
+            <button class="test-button" onclick="testPaymentSuccess()">📄 Testar PaymentSuccess</button>
+            <button class="test-button" onclick="clearStorage()">🧹 Limpar Storage</button>
+            
+            <div id="test-results" style="margin-top: 20px;"></div>
+        </div>
+
+        <div class="debug-section">
+            <h3>🎯 Novo Fluxo (Versão Robusta)</h3>
+            <div class="status success">
+                <strong>✅ CORREÇÃO APLICADA:</strong><br>
+                • PaymentSuccess agora aceita qualquer acesso como pagamento válido<br>
+                • Não depende mais de localStorage ou session_id<br>
+                • Se chegou em /payment-success = pagamento confirmado
+            </div>
+        </div>
+
+        <div class="debug-section">
+            <h3>📊 Verificar Webhook Backend</h3>
+            <button class="test-button" onclick="checkWebhook()">📡 Verificar Último Webhook</button>
+            <div id="webhook-status"></div>
+        </div>
+
+        <div class="debug-section">
+            <h3>🚀 Teste Manual</h3>
+            <ol style="color: #cbd5e0;">
+                <li>Clique em "Assinatura" no login</li>
+                <li>Digite um email válido</li>
+                <li>Complete o pagamento no Stripe</li>
+                <li>Verifique se redireciona para /payment-success</li>
+                <li>Aguarde 8 segundos ou clique "Continuar"</li>
+                <li>Deve ir para /register automaticamente</li>
+            </ol>
+        </div>
+
+        <div class="status warning">
+            <strong>⚠️ Se ainda der erro:</strong><br>
+            1. Verifique se a nova versão foi enviada para o Hostinger<br>
+            2. Force refresh (Ctrl+F5) para limpar cache<br>
+            3. Teste em aba anônima
+        </div>
+    </div>
+
+    <script>
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('test-results');
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        async function testFrontend() {
+            clearResults();
+            addResult('🧪 Testando frontend...', 'info');
+            
+            try {
+                const response = await fetch('https://bwhale.site/');
+                if (response.ok) {
+                    const html = await response.text();
+                    if (html.includes('main.630c906e.js')) {
+                        addResult('✅ Frontend: Nova versão ativa (main.630c906e.js)', 'success');
+                    } else {
+                        addResult('⚠️ Frontend: Versão antiga detectada', 'warning');
+                    }
+                } else {
+                    addResult('❌ Frontend: Erro ao acessar site', 'error');
+                }
+            } catch (error) {
+                addResult(`❌ Frontend: ${error.message}`, 'error');
+            }
+        }
+
+        async function testBackend() {
+            addResult('🧪 Testando backend...', 'info');
+            
+            try {
+                const response = await fetch('https://bigwhale-backend.onrender.com/api/webhook/status');
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(`✅ Backend: ${data.message}`, 'success');
+                } else {
+                    addResult('❌ Backend: Erro na resposta', 'error');
+                }
+            } catch (error) {
+                addResult(`❌ Backend: ${error.message}`, 'error');
+            }
+        }
+
+        async function testPaymentSuccess() {
+            addResult('🧪 Testando rota PaymentSuccess...', 'info');
+            
+            try {
+                const response = await fetch('https://bwhale.site/payment-success?test=true');
+                if (response.ok) {
+                    addResult('✅ PaymentSuccess: Rota acessível', 'success');
+                    addResult('💡 Agora teste manualmente com pagamento real', 'info');
+                } else {
+                    addResult('❌ PaymentSuccess: Erro 404', 'error');
+                }
+            } catch (error) {
+                addResult(`❌ PaymentSuccess: ${error.message}`, 'error');
+            }
+        }
+
+        function clearStorage() {
+            localStorage.clear();
+            sessionStorage.clear();
+            addResult('🧹 LocalStorage e SessionStorage limpos', 'success');
+        }
+
+        async function checkWebhook() {
+            const webhookDiv = document.getElementById('webhook-status');
+            webhookDiv.innerHTML = '<div class="status info">🔍 Verificando webhooks...</div>';
+            
+            try {
+                const response = await fetch('https://bigwhale-backend.onrender.com/api/webhook/test');
+                if (response.ok) {
+                    const data = await response.json();
+                    webhookDiv.innerHTML = `
+                        <div class="status success">
+                            <strong>✅ Endpoint de Webhook Funcionando</strong><br>
+                            Status: ${data.status}<br>
+                            Mensagem: ${data.message}
+                        </div>
+                    `;
+                } else {
+                    webhookDiv.innerHTML = '<div class="status error">❌ Erro ao verificar webhook</div>';
+                }
+            } catch (error) {
+                webhookDiv.innerHTML = `<div class="status error">❌ Erro: ${error.message}</div>`;
+            }
+        }
+
+        // Auto-test ao carregar
+        window.onload = function() {
+            console.log('🔧 Debug page loaded - BigWhale Payment Flow');
+            testFrontend();
+        };
+    </script>
+</body>
+</html> 

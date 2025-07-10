@@ -1,0 +1,120 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "email": "admin@exemplo.com",
+      "full_name": "Admin Teste",
+      "is_admin": true,
+      "is_active": true,
+      "bitget_api_key": "",
+      "bitget_secret_key": "",
+      "bitget_passphrase": "",
+      "api_configured": false
+    },
+    {
+      "id": 2,
+      "email": "usuario@exemplo.com",
+      "full_name": "Usu\u00e1rio Teste",
+      "is_admin": false,
+      "is_active": true,
+      "bitget_api_key": "",
+      "bitget_secret_key": "",
+      "bitget_passphrase": "",
+      "api_configured": false
+    },
+    {
+      "id": 3,
+      "email": "admin@pixusdt.com",
+      "full_name": "Admin",
+      "is_admin": true,
+      "is_active": true,
+      "bitget_api_key": "",
+      "bitget_secret_key": "",
+      "bitget_passphrase": "",
+      "api_configured": false
+    },
+    {
+      "id": 4,
+      "email": "contato3@bigsecuritybank.com",
+      "full_name": "Contato3",
+      "is_admin": false,
+      "is_active": true,
+      "bitget_api_key": "bg_0521082054e4ca3e74257b3a7183d676",
+      "bitget_secret_key": "f3dabe48bfd564febf7c2250995f676be32174bdda65b4f6332fa20134bbd7be",
+      "bitget_passphrase": "Raikamaster1",
+      "api_configured": true
+    },
+    {
+      "id": 5,
+      "email": "nautilus@11nauti.com.br",
+      "full_name": "Nautilus",
+      "is_admin": false,
+      "is_active": true,
+      "bitget_api_key": "bg_0521082054e4ca3e74257b3a7183d676",
+      "bitget_secret_key": "f3dabe48bfd564febf7c2250995f676be32174bdda65b4f6332fa20134bbd7be",
+      "bitget_passphrase": "Raikamaster1",
+      "api_configured": true
+    },
+    {
+      "id": 6,
+      "email": "willian@lexxusadm.com.br",
+      "full_name": "Willian",
+      "is_admin": true,
+      "is_active": true,
+      "bitget_api_key": "",
+      "bitget_secret_key": "",
+      "bitget_passphrase": "",
+      "api_configured": false
+    },
+    {
+      "id": 7,
+      "email": "teste@teste.com",
+      "full_name": "Teste",
+      "is_admin": false,
+      "is_active": true,
+      "bitget_api_key": "",
+      "bitget_secret_key": "",
+      "bitget_passphrase": "",
+      "api_configured": false
+    },
+    {
+      "id": 8,
+      "email": "user2@example.com",
+      "full_name": "User2",
+      "is_admin": false,
+      "is_active": true,
+      "bitget_api_key": "test_api_key_12345",
+      "bitget_secret_key": "test_secret_key_67890",
+      "bitget_passphrase": "test_passphrase",
+      "api_configured": true
+    },
+    {
+      "id": 9,
+      "email": "admin@bigwhale.com",
+      "full_name": "Admin",
+      "is_admin": true,
+      "is_active": true,
+      "bitget_api_key": "",
+      "bitget_secret_key": "",
+      "bitget_passphrase": "",
+      "api_configured": false
+    },
+    {
+      "id": 10,
+      "email": "financeiro@lexxusadm.com.br",
+      "full_name": "Grupo Big Whale  22",
+      "is_admin": false,
+      "is_active": true,
+      "bitget_api_key": "",
+      "bitget_secret_key": "",
+      "bitget_passphrase": "",
+      "api_configured": false
+    }
+  ],
+  "auto_sync": {
+    "status": "running",
+    "last_sync": "2025-06-25T16:34:13.733487",
+    "interval": 300,
+    "next_sync": "2025-06-25T16:39:13.733487"
+  }
+}
