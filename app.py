@@ -74,10 +74,16 @@ def create_app(config_name='default'):
              "http://127.0.0.1:3001", 
              "http://127.0.0.1:3002",
              "https://bwhale.site",
-             "http://bwhale.site"
+             "http://bwhale.site",
+             "https://www.bwhale.site",
+             "http://www.bwhale.site"
          ],
          allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+    
+    # Log da configuração CORS
+    app.logger.info(f"CORS configurado para domínios: https://bwhale.site, http://bwhale.site, https://www.bwhale.site, http://www.bwhale.site")
+    
     db.init_app(app)
     
     # Configurar Flask-Session com sessões persistentes no banco de dados
