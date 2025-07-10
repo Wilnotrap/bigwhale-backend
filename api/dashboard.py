@@ -8,6 +8,7 @@ from api.bitget_client import BitgetAPI
 from datetime import datetime
 import json
 import logging
+from flask_cors import cross_origin
 
 # Configurar logging básico
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -1156,3 +1157,105 @@ def stop_auto_sync():
     except Exception as e:
         logging.error(f"Erro ao parar sincronização: {e}")
         return jsonify({"success": False, "message": "Error stopping sync"}), 500
+
+@dashboard_bp.route('/reconnect-api', methods=['POST'])
+@cross_origin(supports_credentials=True)
+def reconnect_api():
+    """
+    Reconecta a API buscando credenciais criptografadas do banco de dados
+    """
+    try:
+        # Verificar se o usuário está logado
+        if 'user_id' not in session:
+            return jsonify({'success': False, 'message': 'Usuário não autenticado'}), 401
+        
+        user_id = session['user_id']
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'success': False, 'message': 'Usuário não encontrado'}), 404
+        
+        # Verificar se o usuário tem credenciais da API configuradas
+        if not (user.bitget_api_key_encrypted and user.bitget_api_secret_encrypted and user.bitget_passphrase_encrypted):
+            return jsonify({
+                'success': False, 
+                'message': 'Credenciais da API não encontradas. Por favor, configure suas credenciais no perfil.',
+                'needs_config': True
+            }), 400
+        
+        # Descriptografar credenciais
+        try:
+            from utils.security import decrypt_api_key
+            
+            api_key = decrypt_api_key(user.bitget_api_key_encrypted)
+            api_secret = decrypt_api_key(user.bitget_api_secret_encrypted)
+            passphrase = decrypt_api_key(user.bitget_passphrase_encrypted)
+            
+            if not (api_key and api_secret and passphrase):
+                return jsonify({
+                    'success': False,
+                    'message': 'Erro ao descriptografar credenciais da API',
+                    'needs_config': True
+                }), 500
+                
+        except Exception as e:
+            logging.error(f"Erro ao descriptografar credenciais para usuário {user_id}: {e}")
+            return jsonify({
+                'success': False,
+                'message': 'Erro ao processar credenciais da API',
+                'needs_config': True
+            }), 500
+        
+        # Criar cliente Bitget e validar credenciais
+        try:
+            bitget_client = BitgetAPI(
+                api_key=api_key,
+                secret_key=api_secret,
+                passphrase=passphrase
+            )
+            
+            # Testar conexão fazendo uma chamada simples
+            account_info = bitget_client.get_account_info()
+            
+            if not account_info:
+                return jsonify({
+                    'success': False,
+                    'message': 'Credenciais da API inválidas ou expiradas. Verifique suas configurações.',
+                    'needs_config': True
+                }), 400
+            
+            # Sucesso - API reconectada
+            logging.info(f"API reconectada com sucesso para usuário {user_id}")
+            
+            # Opcionalmente, buscar saldo atual
+            balance_info = None
+            try:
+                balance_info = bitget_client.get_balance()
+            except Exception as e:
+                logging.warning(f"Erro ao buscar saldo após reconexão: {e}")
+            
+            return jsonify({
+                'success': True,
+                'message': 'API reconectada com sucesso! Dados atualizados.',
+                'data': {
+                    'api_status': 'connected',
+                    'account_info': account_info,
+                    'balance_info': balance_info,
+                    'reconnected_at': datetime.utcnow().isoformat()
+                }
+            }), 200
+            
+        except Exception as e:
+            logging.error(f"Erro ao reconectar API para usuário {user_id}: {e}")
+            return jsonify({
+                'success': False,
+                'message': 'Erro ao conectar com a API Bitget. Verifique suas credenciais.',
+                'needs_config': True
+            }), 400
+            
+    except Exception as e:
+        logging.error(f"Erro interno no reconnect_api: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Erro interno do servidor'
+        }), 500
