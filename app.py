@@ -6,17 +6,52 @@ Versão para deploy no Render.com
 """
 
 import os
-from flask import Flask, jsonify
-from flask_cors import CORS
-from dotenv import load_dotenv
-from database import db
-
+import sys
 import logging
-from logging.handlers import RotatingFileHandler
-from datetime import timedelta, datetime
 
-# Carregar variáveis de ambiente do arquivo .env
-load_dotenv()
+# Configurar logging básico ANTES de qualquer coisa
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+    ]
+)
+
+logger = logging.getLogger(__name__)
+
+try:
+    logger.info("=== INICIANDO APLICAÇÃO FLASK ===")
+    logger.info(f"Python version: {sys.version}")
+    logger.info(f"Working directory: {os.getcwd()}")
+    logger.info(f"Python path: {sys.path}")
+    
+    from flask import Flask, jsonify
+    logger.info("Flask importado com sucesso")
+    
+    from flask_cors import CORS
+    logger.info("Flask-CORS importado com sucesso")
+    
+    from dotenv import load_dotenv
+    logger.info("python-dotenv importado com sucesso")
+    
+    from database import db
+    logger.info("database.py importado com sucesso")
+    
+    from logging.handlers import RotatingFileHandler
+    from datetime import timedelta, datetime
+    logger.info("Módulos padrão importados com sucesso")
+    
+    # Carregar variáveis de ambiente do arquivo .env
+    load_dotenv()
+    logger.info("Variáveis de ambiente carregadas")
+    
+except Exception as e:
+    logger.error(f"ERRO CRÍTICO NA IMPORTAÇÃO: {str(e)}")
+    import traceback
+    logger.error(f"Traceback: {traceback.format_exc()}")
+    raise
+
 
 def create_app(config_name='default'):
     """
