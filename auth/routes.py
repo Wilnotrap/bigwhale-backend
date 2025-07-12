@@ -11,7 +11,6 @@ import re # For password complexity
 from flask_cors import cross_origin
 from services.nautilus_service import NautilusService
 from models.session import UserSession
-from utils.api_persistence import api_persistence
 import logging
 
 # Criar blueprint para autenticação
@@ -530,11 +529,7 @@ def update_profile():
             if not all([bitget_api_key, bitget_api_secret, bitget_passphrase]):
                 return jsonify({'message': 'Todas as credenciais da API devem ser fornecidas (API Key, Secret e Passphrase)'}), 400
             
-            # Fazer backup automático das credenciais atuais antes de atualizar
-            try:
-                api_persistence.auto_backup_on_update(user.id)
-            except Exception as e:
-                print(f"⚠️ Erro no backup automático para usuário {user.id}: {e}")
+            # Backup automático removido na versão corrigida
             print(f"🔄 Atualizando credenciais da API para usuário {user.id}")
             
             # Validar as novas credenciais usando o cliente Bitget

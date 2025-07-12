@@ -261,5 +261,4 @@ class APIPersistence:
         
         return removed_count
 
-# Instância global para uso em outras partes da aplicação
-api_persistence = APIPersistence() 
+# Instância global removida na versão corrigida - usar SecureAPIService 
