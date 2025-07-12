@@ -1250,8 +1250,8 @@ def reconnect_api():
                 passphrase=passphrase
             )
             
-            # Testar a conexão obtendo as informações da conta
-            account_info = bitget_client.get_account_info()
+            # Testar a conexão obtendo as informações da conta (corrigido)
+            account_info = bitget_client.get_account_balance()
             
             if account_info and account_info.get('code') == '00000':
                 logging.info(f"✅ API do usuário {user_id} reconectada com sucesso.")
