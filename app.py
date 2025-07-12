@@ -113,6 +113,12 @@ def create_app(config_name='default'):
          allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
     db.init_app(app)
+
+    # Garanta que as tabelas do banco de dados sejam criadas
+    # Isso é crucial para o SQLite criar o arquivo .db no diretório correto (/tmp no Render)
+    with app.app_context():
+        db.create_all()
+        app.logger.info("Tabelas do banco de dados garantidas na inicialização.")
     
     # Configurar Flask-Session com configurações mais simples
     try:
@@ -229,7 +235,7 @@ def create_app(config_name='default'):
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(stripe_webhook_bp, url_prefix='/api')
 
-    # Inicializar SecureAPIService e registrar suas rotas
+    # Inicializar SecureAPIService (versão corrigida)
     secure_api_service = SecureAPIService(app)
 
     # --- Rota de Teste Simples ---

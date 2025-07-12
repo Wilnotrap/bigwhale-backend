@@ -14,19 +14,30 @@ class APIPersistence:
     """Classe para gerenciar a persistência das credenciais da API"""
     
     def __init__(self, db_path: str = None):
+        print(f"APIPersistence: Inicializando com db_path inicial: {db_path}")
         if db_path is None:
-            # Usar o mesmo caminho do Flask
-            import os
-            from flask import current_app
-            try:
-                self.db_path = os.path.join(current_app.instance_path, 'site.db')
-            except RuntimeError:
-                # Fallback se não estiver em contexto do Flask
-                self.db_path = os.path.join('backend', 'instance', 'site.db')
+            # Check for RENDER environment variable first
+            if os.environ.get('RENDER'):
+                self.db_path = '/tmp/site.db'
+                print(f"APIPersistence: Ambiente Render detectado, usando db_path: {self.db_path}")
+            else:
+                # Usar o mesmo caminho do Flask
+                import os
+                from flask import current_app
+                try:
+                    self.db_path = os.path.join(current_app.instance_path, 'site.db')
+                    print(f"APIPersistence: Em contexto Flask, usando db_path: {self.db_path}")
+                except RuntimeError:
+                    # Fallback se não estiver em contexto do Flask
+                    self.db_path = os.path.join('backend', 'instance', 'site.db')
+                    print(f"APIPersistence: Fallback, usando db_path: {self.db_path}")
         else:
             self.db_path = db_path
+            print(f"APIPersistence: db_path fornecido, usando: {self.db_path}")
+
         self.backup_dir = 'backups/api_credentials'
         self._ensure_backup_dir()
+        print(f"APIPersistence: Finalizado init. DB Path final: {self.db_path}")
     
     def _ensure_backup_dir(self):
         """Garante que o diretório de backup existe"""
@@ -34,7 +45,7 @@ class APIPersistence:
             os.makedirs(self.backup_dir, exist_ok=True)
     
     def backup_user_credentials(self, user_id: int) -> bool:
-        """Faz backup das credenciais de um usuário"""
+        print(f"APIPersistence: Tentando conectar ao DB para backup: {self.db_path}")
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()

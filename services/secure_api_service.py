@@ -17,25 +17,15 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from database import db
 from models.user import User
-from services.credential_monitor import CredentialMonitor
-from utils.api_persistence import APIPersistence
 from utils.security import decrypt_api_key, encrypt_api_key
+from api.bitget_client import BitgetAPI
 from dotenv import load_dotenv
 
 class SecureAPIService:
-    """Serviço de API segura para credenciais"""
+    """Serviço de API segura para credenciais - VERSÃO CORRIGIDA"""
     
-    def __init__(self, app: Flask = None, credential_monitor: CredentialMonitor = None):
+    def __init__(self, app: Flask = None):
         self.app = app
-        # Usar a instância de credential_monitor passada, ou usar a global se disponível
-        if credential_monitor is None:
-            # Isso só deve ser usado em cenários onde credential_monitor é importado como singleton global
-            from services.credential_monitor import credential_monitor as global_credential_monitor
-            self.credential_monitor = global_credential_monitor
-        else:
-            self.credential_monitor = credential_monitor
-        
-        self.api_persistence = self.credential_monitor.api_persistence # Acessar api_persistence via credential_monitor
         
         if app:
             self.init_app(app)
@@ -84,6 +74,100 @@ class SecureAPIService:
             'errors': errors
         }
     
+    def secure_save_credentials(self, user_id: int, api_key: str, api_secret: str, passphrase: str) -> bool:
+        """Salva credenciais de forma segura usando apenas SQLAlchemy"""
+        try:
+            # Criptografar novas credenciais
+            encrypted_key = encrypt_api_key(api_key)
+            encrypted_secret = encrypt_api_key(api_secret)
+            encrypted_passphrase = encrypt_api_key(passphrase)
+            
+            if not all([encrypted_key, encrypted_secret, encrypted_passphrase]):
+                print(f"❌ Falha na criptografia das credenciais do usuário {user_id}")
+                return False
+            
+            # Atualizar no banco de dados usando SQLAlchemy
+            user = User.query.get(user_id)
+            if not user:
+                print(f"❌ Usuário {user_id} não encontrado")
+                return False
+            
+            user.bitget_api_key_encrypted = encrypted_key
+            user.bitget_api_secret_encrypted = encrypted_secret
+            user.bitget_passphrase_encrypted = encrypted_passphrase
+            
+            db.session.commit()
+            
+            print(f"✅ Credenciais salvas com segurança para usuário {user.email}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Erro ao salvar credenciais do usuário {user_id}: {e}")
+            db.session.rollback()
+            return False
+    
+    def validate_user_credentials(self, user_id: int) -> Dict[str, any]:
+        """Valida credenciais do usuário usando apenas SQLAlchemy"""
+        try:
+            # Buscar usuário usando SQLAlchemy
+            user = User.query.get(user_id)
+            
+            if not user:
+                return {
+                    'valid': False,
+                    'error': 'Usuário não encontrado',
+                    'has_credentials': False
+                }
+            
+            # Verificar se todas as credenciais existem
+            api_key_enc = user.bitget_api_key_encrypted
+            secret_enc = user.bitget_api_secret_encrypted
+            passphrase_enc = user.bitget_passphrase_encrypted
+            
+            has_all_credentials = all([api_key_enc, secret_enc, passphrase_enc])
+            
+            if not has_all_credentials:
+                return {
+                    'valid': False,
+                    'error': 'Credenciais incompletas',
+                    'has_credentials': False,
+                    'missing': {
+                        'api_key': not bool(api_key_enc),
+                        'secret': not bool(secret_enc),
+                        'passphrase': not bool(passphrase_enc)
+                    }
+                }
+            
+            # Tentar descriptografar
+            try:
+                api_key = decrypt_api_key(api_key_enc)
+                secret = decrypt_api_key(secret_enc)
+                passphrase = decrypt_api_key(passphrase_enc)
+                
+                decryption_success = all([api_key, secret, passphrase])
+                
+                return {
+                    'valid': decryption_success,
+                    'has_credentials': True,
+                    'can_decrypt': decryption_success,
+                    'error': None if decryption_success else 'Falha na descriptografia'
+                }
+                
+            except Exception as e:
+                return {
+                    'valid': False,
+                    'has_credentials': True,
+                    'can_decrypt': False,
+                    'error': f'Erro na descriptografia: {str(e)}'
+                }
+                
+        except Exception as e:
+            return {
+                'valid': False,
+                'error': f'Erro na validação: {str(e)}',
+                'has_credentials': False
+            }
+    
     def register_routes(self):
         """Registra as rotas da API"""
         
@@ -117,7 +201,7 @@ class SecureAPIService:
                     }), 400
                 
                 # Salvar com segurança
-                success = self.credential_monitor.secure_save_credentials(
+                success = self.secure_save_credentials(
                     user_id, api_key, api_secret, passphrase
                 )
                 
@@ -149,9 +233,7 @@ class SecureAPIService:
                 user_id = session['user_id']
                 
                 # Verificar credenciais
-                result = self.credential_monitor.check_user_credentials(
-                    User.query.get(user_id)
-                )
+                result = self.validate_user_credentials(user_id)
                 
                 return jsonify({
                     'success': True,
@@ -182,27 +264,17 @@ class SecureAPIService:
                         'code': 'USER_NOT_FOUND'
                     }), 404
                 
-                # Verificar se tem credenciais
-                has_credentials = bool(
-                    user.bitget_api_key_encrypted and 
-                    user.bitget_api_secret_encrypted and 
-                    user.bitget_passphrase_encrypted
-                )
+                # Verificar credenciais usando a nova validação
+                validation = self.validate_user_credentials(user_id)
                 
                 status = {
-                    'has_credentials': has_credentials,
+                    'has_credentials': validation.get('has_credentials', False),
+                    'valid': validation.get('valid', False),
+                    'can_decrypt': validation.get('can_decrypt', False),
+                    'error': validation.get('error'),
                     'user_email': user.email,
                     'timestamp': datetime.now().isoformat()
                 }
-                
-                if has_credentials:
-                    # Verificar integridade
-                    validation = self.credential_monitor.check_user_credentials(user)
-                    status.update({
-                        'valid': validation.get('valid', False),
-                        'error': validation.get('error'),
-                        'can_decrypt': validation.get('can_decrypt', False)
-                    })
                 
                 return jsonify({
                     'success': True,
@@ -216,123 +288,15 @@ class SecureAPIService:
                     'code': 'STATUS_ERROR'
                 }), 500
         
-        @self.app.route('/api/credentials/backups', methods=['GET'])
-        @self.require_login
-        def get_backups():
-            """Lista os backups disponíveis do usuário"""
-            try:
-                user_id = session['user_id']
-                
-                backups = self.api_persistence.get_user_backups(user_id)
-                
-                return jsonify({
-                    'success': True,
-                    'backups': backups,
-                    'count': len(backups),
-                    'timestamp': datetime.now().isoformat()
-                })
-                
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': f'Erro ao listar backups: {str(e)}',
-                    'code': 'BACKUP_LIST_ERROR'
-                }), 500
-        
-        @self.app.route('/api/credentials/restore', methods=['POST'])
-        @self.require_login
-        def restore_credentials():
-            """Restaura credenciais de um backup"""
-            try:
-                user_id = session['user_id']
-                data = request.get_json()
-                
-                backup_filename = data.get('backup_filename') if data else None
-                
-                if backup_filename:
-                    # Restaurar backup específico
-                    backup_path = os.path.join(
-                        'backups', 'api_credentials', backup_filename
-                    )
-                    success = self.api_persistence.restore_user_credentials(
-                        user_id, backup_path
-                    )
-                else:
-                    # Restaurar backup mais recente
-                    success = self.credential_monitor.attempt_credential_restoration(
-                        User.query.get(user_id)
-                    )
-                
-                if success:
-                    return jsonify({
-                        'success': True,
-                        'message': 'Credenciais restauradas com sucesso',
-                        'timestamp': datetime.now().isoformat()
-                    })
-                else:
-                    return jsonify({
-                        'success': False,
-                        'error': 'Falha ao restaurar credenciais',
-                        'code': 'RESTORE_ERROR'
-                    }), 500
-                
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': f'Erro ao restaurar credenciais: {str(e)}',
-                    'code': 'RESTORE_ERROR'
-                }), 500
-        
-        @self.app.route('/api/credentials/force-check', methods=['POST'])
-        @self.require_login
-        def force_check():
-            """Força verificação imediata das credenciais"""
-            try:
-                user_id = session['user_id']
-                
-                result = self.credential_monitor.force_check_user(user_id)
-                
-                return jsonify({
-                    'success': True,
-                    'result': result,
-                    'timestamp': datetime.now().isoformat()
-                })
-                
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': f'Erro na verificação: {str(e)}',
-                    'code': 'CHECK_ERROR'
-                }), 500
-        
-        @self.app.route('/api/monitor/status', methods=['GET'])
-        @self.require_login
-        def get_monitor_status():
-            """Retorna o status do monitoramento"""
-            try:
-                status = self.credential_monitor.get_monitoring_status()
-                
-                return jsonify({
-                    'success': True,
-                    'monitor_status': status,
-                    'timestamp': datetime.now().isoformat()
-                })
-                
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'error': f'Erro ao obter status do monitor: {str(e)}',
-                    'code': 'MONITOR_STATUS_ERROR'
-                }), 500
-        
         @self.app.route('/api/credentials/test-connection', methods=['POST'])
         @self.require_login
         def test_api_connection():
-            """Testa a conexão com a API usando as credenciais atuais"""
+            """Testa a conexão com a API Bitget"""
             try:
                 user_id = session['user_id']
-                user = User.query.get(user_id)
                 
+                # Obter credenciais do usuário
+                user = User.query.get(user_id)
                 if not user:
                     return jsonify({
                         'success': False,
@@ -341,85 +305,49 @@ class SecureAPIService:
                     }), 404
                 
                 # Verificar se tem credenciais
-                if not all([
-                    user.bitget_api_key_encrypted,
-                    user.bitget_api_secret_encrypted,
-                    user.bitget_passphrase_encrypted
-                ]):
+                if not all([user.bitget_api_key_encrypted, user.bitget_api_secret_encrypted, user.bitget_passphrase_encrypted]):
                     return jsonify({
                         'success': False,
                         'error': 'Credenciais não configuradas',
                         'code': 'NO_CREDENTIALS'
                     }), 400
                 
-                # Tentar descriptografar
+                # Descriptografar credenciais
                 try:
                     api_key = decrypt_api_key(user.bitget_api_key_encrypted)
                     api_secret = decrypt_api_key(user.bitget_api_secret_encrypted)
                     passphrase = decrypt_api_key(user.bitget_passphrase_encrypted)
+                except Exception as e:
+                    return jsonify({
+                        'success': False,
+                        'error': f'Erro na descriptografia: {str(e)}',
+                        'code': 'DECRYPTION_ERROR'
+                    }), 500
+                
+                # Testar conexão com a API
+                try:
+                    bitget_client = BitgetAPI(api_key, api_secret, passphrase)
                     
-                    if not all([api_key, api_secret, passphrase]):
-                        return jsonify({
-                            'success': False,
-                            'error': 'Falha na descriptografia das credenciais',
-                            'code': 'DECRYPTION_ERROR'
-                        }), 500
-                    
-                    # Aqui você pode adicionar teste real da API Bitget
-                    # Por enquanto, apenas verificamos se conseguimos descriptografar
+                    # Testar uma chamada simples
+                    account_info = bitget_client.get_account_info()
                     
                     return jsonify({
                         'success': True,
-                        'message': 'Credenciais válidas e descriptografadas com sucesso',
-                        'connection_test': 'passed',
+                        'message': 'Conexão com a API Bitget estabelecida com sucesso',
+                        'account_info': account_info,
                         'timestamp': datetime.now().isoformat()
                     })
                     
-                except Exception as decrypt_error:
+                except Exception as e:
                     return jsonify({
                         'success': False,
-                        'error': f'Erro na descriptografia: {str(decrypt_error)}',
-                        'code': 'DECRYPTION_ERROR'
+                        'error': f'Erro ao conectar com a API Bitget: {str(e)}',
+                        'code': 'API_CONNECTION_ERROR'
                     }), 500
                 
             except Exception as e:
                 return jsonify({
                     'success': False,
-                    'error': f'Erro no teste de conexão: {str(e)}',
-                    'code': 'CONNECTION_TEST_ERROR'
+                    'error': f'Erro interno: {str(e)}',
+                    'code': 'INTERNAL_ERROR'
                 }), 500
-
-# Instância global do serviço
-secure_api_service = SecureAPIService()
-
-def create_secure_api_app():
-    """Cria aplicação Flask para a API segura"""
-    # Carregar variáveis de ambiente
-    load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env'))
-    
-    app = Flask(__name__)
-    
-    # Configurações básicas
-    app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key')
-    app.config['AES_ENCRYPTION_KEY'] = os.environ.get('AES_ENCRYPTION_KEY', 'chave-criptografia-api-bitget-nautilus-sistema-seguro-123456789')
-    
-    # Configuração do banco
-    instance_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance')
-    os.makedirs(instance_dir, exist_ok=True)
-    db_path = os.path.join(instance_dir, 'site.db')
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
-    # Inicializar extensões
-    db.init_app(app)
-    self.credential_monitor.init_app(app)
-    secure_api_service.init_app(app)
-    
-    return app
-
-if __name__ == '__main__':
-    # Executar como script standalone
-    app = create_secure_api_app()
-    
-    print("🚀 Iniciando API segura de credenciais...")
-    app.run(debug=True, host='0.0.0.0', port=5001)
