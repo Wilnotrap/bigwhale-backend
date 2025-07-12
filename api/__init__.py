@@ -14,10 +14,10 @@ def get_api_credentials():
     user = User.query.get(session['user_id'])
     if not user:
         return jsonify({'message': 'Usuário não encontrado'}), 404
-    # Descriptografa as credenciais
-    api_key = decrypt_api_key(user.bitget_api_key_encrypted) if user.bitget_api_key_encrypted else ''
-    api_secret = decrypt_api_key(user.bitget_api_secret_encrypted) if user.bitget_api_secret_encrypted else ''
-    passphrase = decrypt_api_key(user.bitget_passphrase_encrypted) if user.bitget_passphrase_encrypted else ''
+    # Retorna as credenciais CRIPTOGRAFADAS para feedback visual
+    api_key = user.bitget_api_key_encrypted or ''
+    api_secret = user.bitget_api_secret_encrypted or ''
+    passphrase = user.bitget_passphrase_encrypted or ''
     api_configured = bool(api_key and api_secret and passphrase)
     return jsonify({
         'api_configured': api_configured,
