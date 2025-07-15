@@ -5,7 +5,6 @@ from models.trade import Trade
 from database import db
 from utils.security import decrypt_api_key
 from api.bitget_client import BitgetAPI
-from services.secure_api_service_corrigido import SecureAPIService # Importar SecureAPIService
 from datetime import datetime
 import json
 import logging
@@ -290,7 +289,7 @@ def sync_trades():
             logging.error(f"Credenciais descriptografadas inválidas para usuário {user_id}")
             return jsonify({'error': 'Credenciais da API corrompidas. Reconfigure suas credenciais.'}), 400
 
-        # Criar cliente Bitget com tratamento de erro robusto
+        # Criar cliente Bitget com tratamento de erro
         try:
             bitget_client = BitgetAPI(api_key=api_key, secret_key=api_secret, passphrase=passphrase)
         except Exception as e:
@@ -1168,51 +1167,20 @@ def reconnect_api():
     try:
         # Verificar se o usuário está logado
         if 'user_id' not in session:
-            return jsonify({
-                'success': False, 
-                'message': 'Usuário não autenticado. Faça login novamente.',
-                'code': 'UNAUTHORIZED'
-            }), 401
+            return jsonify({'success': False, 'message': 'Usuário não autenticado'}), 401
         
         user_id = session['user_id']
         user = User.query.get(user_id)
         
         if not user:
-            return jsonify({
-                'success': False, 
-                'message': 'Usuário não encontrado.',
-                'code': 'USER_NOT_FOUND'
-            }), 404
+            return jsonify({'success': False, 'message': 'Usuário não encontrado'}), 404
         
         # Verificar se o usuário tem credenciais da API configuradas
-        has_credentials = bool(
-            user.bitget_api_key_encrypted and 
-            user.bitget_api_secret_encrypted and 
-            user.bitget_passphrase_encrypted
-        )
-        
-        if not has_credentials:
-            # Verificar se tem credenciais parciais
-            partial_credentials = []
-            if user.bitget_api_key_encrypted:
-                partial_credentials.append('API Key')
-            if user.bitget_api_secret_encrypted:
-                partial_credentials.append('API Secret')
-            if user.bitget_passphrase_encrypted:
-                partial_credentials.append('Passphrase')
-            
-            if partial_credentials:
-                message = f'Credenciais incompletas detectadas: {", ".join(partial_credentials)}. Configure todas as credenciais no seu perfil.'
-            else:
-                message = 'Nenhuma credencial da API encontrada. Configure suas credenciais da API Bitget no seu perfil para usar esta funcionalidade.'
-            
+        if not (user.bitget_api_key_encrypted and user.bitget_api_secret_encrypted and user.bitget_passphrase_encrypted):
             return jsonify({
-                'success': False,
-                'message': message,
-                'code': 'CREDENTIALS_NOT_CONFIGURED',
-                'needs_config': True,
-                'redirect_to_profile': True,
-                'partial_credentials': partial_credentials
+                'success': False, 
+                'message': 'Credenciais da API não encontradas. Por favor, configure suas credenciais no perfil.',
+                'needs_config': True
             }), 400
         
         # Descriptografar credenciais
@@ -1226,23 +1194,19 @@ def reconnect_api():
             if not (api_key and api_secret and passphrase):
                 return jsonify({
                     'success': False,
-                    'message': 'Erro ao descriptografar credenciais da API. Reconfigure suas credenciais no perfil.',
-                    'code': 'DECRYPTION_ERROR',
-                    'needs_config': True,
-                    'redirect_to_profile': True
+                    'message': 'Erro ao descriptografar credenciais da API',
+                    'needs_config': True
                 }), 500
                 
         except Exception as e:
             logging.error(f"Erro ao descriptografar credenciais para usuário {user_id}: {e}")
             return jsonify({
                 'success': False,
-                'message': 'Erro ao processar credenciais da API. Reconfigure suas credenciais no perfil.',
-                'code': 'DECRYPTION_ERROR',
-                'needs_config': True,
-                'redirect_to_profile': True
+                'message': 'Erro ao processar credenciais da API',
+                'needs_config': True
             }), 500
         
-        # Criar cliente Bitget e testar conexão
+        # Criar cliente Bitget e validar credenciais
         try:
             bitget_client = BitgetAPI(
                 api_key=api_key,
@@ -1250,7 +1214,7 @@ def reconnect_api():
                 passphrase=passphrase
             )
             
-            # Testar a conexão obtendo as informações da conta (corrigido)
+            # Testar a conexão obtendo as informações da conta
             account_info = bitget_client.get_account_balance()
             
             if account_info and account_info.get('code') == '00000':
@@ -1267,7 +1231,6 @@ def reconnect_api():
                         'account_balance': account_info.get('data', {})
                     }
                 }), 200
-
             else:
                 # Conexão falhou na Bitget
                 error_msg = account_info.get('msg', 'Erro desconhecido na Bitget') if account_info else 'Resposta vazia da Bitget'
@@ -1278,90 +1241,18 @@ def reconnect_api():
                     'error_type': 'CONNECTION_ERROR',
                     'redirect_to_profile': True
                 }), 400
+            
         except Exception as e:
-            logging.error(f"❌ ERRO ao conectar ou testar a API Bitget para usuário {user_id}: {str(e)}")
+            logging.error(f"Erro ao reconectar API para usuário {user_id}: {e}")
             return jsonify({
                 'success': False,
-                'message': f'Erro ao testar a conexão da API: {str(e)}',
-                'error_type': 'BITGET_API_CONNECTION_FAILED'
-            }), 500
+                'message': 'Erro ao conectar com a API Bitget. Verifique suas credenciais.',
+                'needs_config': True
+            }), 400
             
     except Exception as e:
         logging.error(f"Erro interno no reconnect_api: {e}")
         return jsonify({
             'success': False,
-            'message': 'Erro interno do servidor. Tente novamente em alguns instantes.',
-            'code': 'INTERNAL_ERROR'
+            'message': 'Erro interno do servidor'
         }), 500
-
-# Novo endpoint para verificar status das credenciais
-# @dashboard_bp.route('/credentials/status', methods=['GET'])
-# @cross_origin(supports_credentials=True)
-# def check_credentials_status():
-#     """
-#     Verifica o status das credenciais da API do usuário
-#     """
-#     try:
-#         # Verificar se o usuário está logado
-#         if 'user_id' not in session:
-#             return jsonify({
-#                 'success': False,
-#                 'message': 'Usuário não autenticado.',
-#                 'code': 'UNAUTHORIZED'
-#             }), 401
-#         
-#         user_id = session['user_id']
-#         user = User.query.get(user_id)
-#         
-#         if not user:
-#             return jsonify({
-#                 'success': False,
-#                 'message': 'Usuário não encontrado.',
-#                 'code': 'USER_NOT_FOUND'
-#             }), 404
-#         
-#         # Verificar status das credenciais
-#         has_api_key = bool(user.bitget_api_key_encrypted)
-#         has_api_secret = bool(user.bitget_api_secret_encrypted)
-#         has_passphrase = bool(user.bitget_passphrase_encrypted)
-#         
-#         has_all_credentials = has_api_key and has_api_secret and has_passphrase
-#         
-#         status = {
-#             'has_credentials': has_all_credentials,
-#             'has_api_key': has_api_key,
-#             'has_api_secret': has_api_secret,
-#             'has_passphrase': has_passphrase,
-#             'user_email': user.email,
-#             'user_id': user_id,
-#             'checked_at': datetime.utcnow().isoformat()
-#         }
-#         
-#         # Determinar mensagem baseada no status
-#         if has_all_credentials:
-#             message = 'Todas as credenciais da API estão configuradas.'
-#         elif has_api_key or has_api_secret or has_passphrase:
-#             missing = []
-#             if not has_api_key:
-#                 missing.append('API Key')
-#             if not has_api_secret:
-#                 missing.append('API Secret')
-#             if not has_passphrase:
-#                 missing.append('Passphrase')
-#             message = f'Credenciais incompletas. Faltam: {", ".join(missing)}'
-#         else:
-#             message = 'Nenhuma credencial da API configurada.'
-#         
-#         return jsonify({
-#             'success': True,
-#             'message': message,
-#             'status': status
-#         }), 200
-#         
-#     except Exception as e:
-#         logging.error(f"Erro ao verificar status das credenciais: {e}")
-#         return jsonify({
-#             'success': False,
-#             'message': 'Erro interno do servidor.',
-#             'code': 'INTERNAL_ERROR'
-#         }), 500
