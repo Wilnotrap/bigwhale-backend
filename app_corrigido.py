@@ -223,8 +223,8 @@ def create_app(config_name='default'):
     # Crie a instância de CredentialMonitor, passando a APIPersistence
     credential_monitor_instance = CredentialMonitor(app, api_persistence_instance)
     
-    # Inicialize SecureAPIService, passando a CredentialMonitor
-    secure_api_service = SecureAPIService(app, credential_monitor_instance)
+    # Inicialize SecureAPIService
+    secure_api_service = SecureAPIService(app)
 
     # --- Rota de Teste Simples ---
     @app.route('/api/test')
