@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Backend Flask - Sistema Bitget
-Versão PostgreSQL com asyncpg (sem psycopg2)
+PostgreSQL com pg8000 (driver Python puro)
 """
 
 import os
@@ -28,16 +28,16 @@ app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'uma-chave-secreta
 database_url = os.environ.get('DATABASE_URL')
 
 if database_url and os.environ.get('RENDER'):
-    # PostgreSQL em produção usando asyncpg
+    # PostgreSQL em produção usando pg8000 (driver Python puro)
     if database_url.startswith('postgres://'):
-        # Converter para asyncpg
-        database_url = database_url.replace('postgres://', 'postgresql+asyncpg://', 1)
+        # Converter para pg8000
+        database_url = database_url.replace('postgres://', 'postgresql+pg8000://', 1)
     elif database_url.startswith('postgresql://'):
-        # Converter para asyncpg
-        database_url = database_url.replace('postgresql://', 'postgresql+asyncpg://', 1)
+        # Converter para pg8000
+        database_url = database_url.replace('postgresql://', 'postgresql+pg8000://', 1)
     
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    logger.info("✅ Usando PostgreSQL com asyncpg")
+    logger.info("✅ Usando PostgreSQL com pg8000 (driver Python puro)")
 else:
     # SQLite para desenvolvimento local
     db_path = 'site.db'
@@ -135,8 +135,9 @@ def home():
         "status": "running",
         "environment": "Render" if os.environ.get('RENDER') else "Local",
         "timestamp": datetime.now().isoformat(),
-        "version": "7.0.0",
-        "database": db_type
+        "version": "8.0.0",
+        "database": db_type,
+        "driver": "pg8000" if os.environ.get('DATABASE_URL') else "sqlite3"
     })
 
 @app.route('/api/test')
@@ -147,8 +148,9 @@ def test_route():
         "environment": "Render" if os.environ.get('RENDER') else "Local",
         "timestamp": datetime.now().isoformat(),
         "database": db_type,
-        "version": "7.0.0",
-        "cors_enabled": True
+        "version": "8.0.0",
+        "cors_enabled": True,
+        "driver": "pg8000" if os.environ.get('DATABASE_URL') else "sqlite3"
     }), 200
 
 @app.route('/api/health')
@@ -157,6 +159,7 @@ def health_check():
         # Testar conexão com banco
         user_count = User.query.count()
         db_type = "PostgreSQL" if os.environ.get('DATABASE_URL') else "SQLite"
+        driver = "pg8000" if os.environ.get('DATABASE_URL') else "sqlite3"
         
         health_data = {
             'status': 'healthy',
@@ -164,11 +167,12 @@ def health_check():
             'database': {
                 'status': 'connected',
                 'users_count': user_count,
-                'type': db_type
+                'type': db_type,
+                'driver': driver
             },
             'environment': 'Render' if os.environ.get('RENDER') else 'Local',
-            'version': '7.0.0',
-            'message': f'✅ Sistema funcionando com {db_type}'
+            'version': '8.0.0',
+            'message': f'✅ Sistema funcionando com {db_type} ({driver})'
         }
         
         logger.info(f"Health check OK - {user_count} usuários no {db_type}")
@@ -315,7 +319,7 @@ if __name__ == '__main__':
     print("🚀 Iniciando Backend BigWhale...")
     print(f"🌐 Porta: {port}")
     print(f"🔧 Ambiente: {'Render' if os.environ.get('RENDER') else 'Local'}")
-    print("💾 Banco: PostgreSQL (asyncpg)")
+    print("💾 Banco: PostgreSQL (pg8000 - Python puro)")
     print("📧 Credenciais disponíveis:")
     print("   admin@bigwhale.com / Raikamaster1@")
     print("   willian@lexxusadm.com.br / Bigwhale202021@")
