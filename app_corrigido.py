@@ -217,8 +217,8 @@ def create_app(config_name='default'):
     from utils.api_persistence import APIPersistence
     from services.credential_monitor import CredentialMonitor
     
-    # Crie a instância de APIPersistence com o caminho correto
-    api_persistence_instance = APIPersistence(api_persistence_db_path)
+    # Crie a instância de APIPersistence (auto-detecta caminho do banco)
+    api_persistence_instance = APIPersistence()
     
     # Crie a instância de CredentialMonitor, passando a APIPersistence
     credential_monitor_instance = CredentialMonitor(app, api_persistence_instance)
