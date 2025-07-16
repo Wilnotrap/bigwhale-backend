@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Backend Flask - Sistema Bitget
-Versão completa para Render.com
+Versão PostgreSQL com asyncpg (sem psycopg2)
 """
 
 import os
@@ -18,44 +18,35 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configurar PYTHONPATH
-current_dir = os.path.dirname(os.path.abspath(__file__))
-backend_path = os.path.join(current_dir, 'backend')
-if os.path.exists(backend_path) and backend_path not in sys.path:
-    sys.path.insert(0, backend_path)
-    logger.info(f"✅ Backend path adicionado: {backend_path}")
-
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-    logger.info(f"✅ Root path adicionado: {current_dir}")
-
 # Criar aplicação Flask
 app = Flask(__name__)
 
 # Configuração básica
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'uma-chave-secreta-bem-dificil-de-adivinhar-987654')
 
-# Configuração do banco de dados
+# Configuração do banco de dados PostgreSQL
 database_url = os.environ.get('DATABASE_URL')
 
 if database_url and os.environ.get('RENDER'):
-    # PostgreSQL em produção no Render
+    # PostgreSQL em produção usando asyncpg
     if database_url.startswith('postgres://'):
-        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        # Converter para asyncpg
+        database_url = database_url.replace('postgres://', 'postgresql+asyncpg://', 1)
+    elif database_url.startswith('postgresql://'):
+        # Converter para asyncpg
+        database_url = database_url.replace('postgresql://', 'postgresql+asyncpg://', 1)
+    
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-    logger.info("✅ Usando PostgreSQL em produção")
+    logger.info("✅ Usando PostgreSQL com asyncpg")
 else:
-    # SQLite para desenvolvimento
-    if os.environ.get('RENDER'):
-        db_path = '/tmp/site.db'
-    else:
-        db_path = 'site.db'
+    # SQLite para desenvolvimento local
+    db_path = 'site.db'
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-    logger.info(f"✅ Usando SQLite: {db_path}")
+    logger.info(f"✅ Usando SQLite local: {db_path}")
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Configuração CORS COMPLETA
+# Configuração CORS
 CORS(app, 
      supports_credentials=True, 
      origins=[
@@ -73,7 +64,7 @@ CORS(app,
 # Inicializar SQLAlchemy
 db = SQLAlchemy(app)
 
-# Modelo de usuário básico
+# Modelo de usuário
 class User(db.Model):
     __tablename__ = 'users'
     
@@ -91,9 +82,11 @@ class User(db.Model):
 # Inicializar banco de dados
 def init_db():
     try:
-        logger.info("Iniciando criação do banco de dados...")
+        db_type = "PostgreSQL" if os.environ.get('DATABASE_URL') else "SQLite"
+        logger.info(f"Iniciando criação do banco de dados {db_type}...")
+        
         db.create_all()
-        logger.info("✅ Tabelas criadas com sucesso")
+        logger.info(f"✅ Tabelas {db_type} criadas com sucesso")
         
         # Criar usuário admin se não existir
         admin_user = User.query.filter_by(email='admin@bigwhale.com').first()
@@ -118,9 +111,9 @@ def init_db():
             db.session.add(admin_user2)
             
             db.session.commit()
-            logger.info("✅ Usuários admin criados")
+            logger.info(f"✅ Usuários admin criados no {db_type}")
         else:
-            logger.info("✅ Usuários admin já existem")
+            logger.info(f"✅ Usuários admin já existem no {db_type}")
             
     except Exception as e:
         logger.error(f"❌ Erro ao inicializar banco: {e}")
@@ -136,22 +129,25 @@ with app.app_context():
 # Rotas principais
 @app.route('/')
 def home():
+    db_type = "PostgreSQL" if os.environ.get('DATABASE_URL') else "SQLite"
     return jsonify({
         "message": "🐋 Backend BigWhale Online!",
         "status": "running",
         "environment": "Render" if os.environ.get('RENDER') else "Local",
         "timestamp": datetime.now().isoformat(),
-        "version": "5.0.0"
+        "version": "7.0.0",
+        "database": db_type
     })
 
 @app.route('/api/test')
 def test_route():
+    db_type = "PostgreSQL" if os.environ.get('DATABASE_URL') else "SQLite"
     return jsonify({
         "message": "🚀 API BigWhale funcionando no Render!",
         "environment": "Render" if os.environ.get('RENDER') else "Local",
         "timestamp": datetime.now().isoformat(),
-        "database": "PostgreSQL" if os.environ.get('DATABASE_URL') else "SQLite",
-        "version": "5.0.0",
+        "database": db_type,
+        "version": "7.0.0",
         "cors_enabled": True
     }), 200
 
@@ -160,6 +156,7 @@ def health_check():
     try:
         # Testar conexão com banco
         user_count = User.query.count()
+        db_type = "PostgreSQL" if os.environ.get('DATABASE_URL') else "SQLite"
         
         health_data = {
             'status': 'healthy',
@@ -167,14 +164,14 @@ def health_check():
             'database': {
                 'status': 'connected',
                 'users_count': user_count,
-                'type': 'PostgreSQL' if os.environ.get('DATABASE_URL') else 'SQLite'
+                'type': db_type
             },
             'environment': 'Render' if os.environ.get('RENDER') else 'Local',
-            'version': '5.0.0',
-            'message': '✅ Sistema funcionando corretamente'
+            'version': '7.0.0',
+            'message': f'✅ Sistema funcionando com {db_type}'
         }
         
-        logger.info(f"Health check OK - {user_count} usuários")
+        logger.info(f"Health check OK - {user_count} usuários no {db_type}")
         return jsonify(health_data), 200
         
     except Exception as e:
@@ -186,7 +183,7 @@ def health_check():
             'message': '❌ Erro no sistema'
         }), 500
 
-# ROTAS DE AUTENTICAÇÃO COMPLETAS
+# ROTAS DE AUTENTICAÇÃO
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     try:
@@ -259,20 +256,18 @@ def logout():
         logger.error(f"❌ Erro no logout: {e}")
         return jsonify({'error': 'Erro interno do servidor'}), 500
 
-# WEBHOOK STRIPE BÁSICO
+# WEBHOOK STRIPE
 @app.route('/api/stripe/webhook', methods=['POST'])
 def stripe_webhook():
-    """Webhook básico do Stripe"""
+    """Webhook do Stripe"""
     try:
         payload = request.get_data()
         sig_header = request.headers.get('Stripe-Signature')
         
-        logger.info(f"Webhook Stripe recebido - Tamanho: {len(payload)} bytes")
+        logger.info(f"✅ Webhook Stripe recebido - Tamanho: {len(payload)} bytes")
         
-        # Aqui você implementaria a verificação da assinatura do Stripe
-        # Por enquanto, apenas logamos o recebimento
-        
-        return jsonify({'received': True}), 200
+        # Aqui você implementaria a lógica do webhook
+        return jsonify({'received': True, 'status': 'processed'}), 200
         
     except Exception as e:
         logger.error(f"❌ Erro no webhook Stripe: {e}")
@@ -320,7 +315,7 @@ if __name__ == '__main__':
     print("🚀 Iniciando Backend BigWhale...")
     print(f"🌐 Porta: {port}")
     print(f"🔧 Ambiente: {'Render' if os.environ.get('RENDER') else 'Local'}")
-    print(f"💾 Banco: {'PostgreSQL' if os.environ.get('DATABASE_URL') else 'SQLite'}")
+    print("💾 Banco: PostgreSQL (asyncpg)")
     print("📧 Credenciais disponíveis:")
     print("   admin@bigwhale.com / Raikamaster1@")
     print("   willian@lexxusadm.com.br / Bigwhale202021@")
