@@ -1,158 +1,103 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Backend Flask Final - Sistema Bitget
-Versão corrigida e funcional para deploy no Render.com
+Backend Flask - Sistema Bitget
+Versão completa para Render.com
 """
 
 import os
 import sys
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, session
 from flask_cors import CORS
-from dotenv import load_dotenv
-from datetime import timedelta, datetime
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
 import logging
-from logging.handlers import RotatingFileHandler
 
-# Carregar variáveis de ambiente
-load_dotenv()
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def configure_python_path():
-    """Configura PYTHONPATH para encontrar módulos corretamente"""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # Adicionar diretório backend ao path
-    backend_path = os.path.join(current_dir, 'backend')
-    if os.path.exists(backend_path) and backend_path not in sys.path:
-        sys.path.insert(0, backend_path)
-        print(f"✅ Backend path adicionado: {backend_path}")
-    
-    # Adicionar diretório raiz ao path
-    if current_dir not in sys.path:
-        sys.path.insert(0, current_dir)
-        print(f"✅ Root path adicionado: {current_dir}")
+# Configurar PYTHONPATH
+current_dir = os.path.dirname(os.path.abspath(__file__))
+backend_path = os.path.join(current_dir, 'backend')
+if os.path.exists(backend_path) and backend_path not in sys.path:
+    sys.path.insert(0, backend_path)
+    logger.info(f"✅ Backend path adicionado: {backend_path}")
 
-def import_modules_safely():
-    """Importa módulos com fallbacks seguros"""
-    modules = {}
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+    logger.info(f"✅ Root path adicionado: {current_dir}")
+
+# Criar aplicação Flask
+app = Flask(__name__)
+
+# Configuração básica
+app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'uma-chave-secreta-bem-dificil-de-adivinhar-987654')
+
+# Configuração do banco de dados
+database_url = os.environ.get('DATABASE_URL')
+
+if database_url and os.environ.get('RENDER'):
+    # PostgreSQL em produção no Render
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    logger.info("✅ Usando PostgreSQL em produção")
+else:
+    # SQLite para desenvolvimento
+    if os.environ.get('RENDER'):
+        db_path = '/tmp/site.db'
+    else:
+        db_path = 'site.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    logger.info(f"✅ Usando SQLite: {db_path}")
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Configuração CORS COMPLETA
+CORS(app, 
+     supports_credentials=True, 
+     origins=[
+         "http://localhost:3000", 
+         "http://localhost:3001", 
+         "http://localhost:3002", 
+         "https://bwhale.site",
+         "http://bwhale.site",
+         "https://bigwhale-backend.onrender.com"
+     ],
+     allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials", "X-Requested-With"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     expose_headers=["Content-Type", "Authorization"])
+
+# Inicializar SQLAlchemy
+db = SQLAlchemy(app)
+
+# Modelo de usuário básico
+class User(db.Model):
+    __tablename__ = 'users'
     
+    id = db.Column(db.Integer, primary_key=True)
+    full_name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    is_admin = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+# Inicializar banco de dados
+def init_db():
     try:
-        # Importar database
-        try:
-            from backend.database import db
-            modules['db'] = db
-            print("✅ Database importado (backend)")
-        except ImportError:
-            try:
-                from database import db
-                modules['db'] = db
-                print("✅ Database importado (root)")
-            except ImportError:
-                print("⚠️ Database não disponível")
-                modules['db'] = None
+        logger.info("Iniciando criação do banco de dados...")
+        db.create_all()
+        logger.info("✅ Tabelas criadas com sucesso")
         
-        # Importar User model
-        try:
-            from backend.models.user import User
-            modules['User'] = User
-            print("✅ User model importado (backend)")
-        except ImportError:
-            try:
-                from models.user import User
-                modules['User'] = User
-                print("✅ User model importado (root)")
-            except ImportError:
-                print("⚠️ User model não disponível")
-                modules['User'] = None
-        
-        # Importar blueprints se disponíveis
-        blueprints_imported = 0
-        
-        # Auth blueprint
-        try:
-            from backend.auth.routes import auth_bp
-            modules['auth_bp'] = auth_bp
-            blueprints_imported += 1
-            print("✅ Auth blueprint importado")
-        except ImportError:
-            print("⚠️ Auth blueprint não disponível")
-            modules['auth_bp'] = None
-        
-        # Dashboard blueprint
-        try:
-            from backend.api.dashboard import dashboard_bp
-            modules['dashboard_bp'] = dashboard_bp
-            blueprints_imported += 1
-            print("✅ Dashboard blueprint importado")
-        except ImportError:
-            print("⚠️ Dashboard blueprint não disponível")
-            modules['dashboard_bp'] = None
-        
-        # Admin blueprint
-        try:
-            from backend.api.admin import admin_bp
-            modules['admin_bp'] = admin_bp
-            blueprints_imported += 1
-            print("✅ Admin blueprint importado")
-        except ImportError:
-            print("⚠️ Admin blueprint não disponível")
-            modules['admin_bp'] = None
-        
-        # Stripe webhook
-        try:
-            from backend.api.stripe_webhook import stripe_webhook_bp
-            modules['stripe_webhook_bp'] = stripe_webhook_bp
-            blueprints_imported += 1
-            print("✅ Stripe webhook importado")
-        except ImportError:
-            print("⚠️ Stripe webhook não disponível")
-            modules['stripe_webhook_bp'] = None
-        
-        # API credentials
-        try:
-            from backend.api import api_credentials_bp
-            modules['api_credentials_bp'] = api_credentials_bp
-            blueprints_imported += 1
-            print("✅ API credentials importado")
-        except ImportError:
-            print("⚠️ API credentials não disponível")
-            modules['api_credentials_bp'] = None
-        
-        # Auth middleware
-        try:
-            from backend.middleware.auth_middleware import AuthMiddleware
-            modules['AuthMiddleware'] = AuthMiddleware
-            print("✅ Auth middleware importado")
-        except ImportError:
-            print("⚠️ Auth middleware não disponível")
-            modules['AuthMiddleware'] = None
-        
-        # Admin credentials function
-        try:
-            from backend.auth.login import ensure_admin_credentials
-            modules['ensure_admin_credentials'] = ensure_admin_credentials
-            print("✅ Admin credentials function importada")
-        except ImportError:
-            print("⚠️ Admin credentials function não disponível")
-            modules['ensure_admin_credentials'] = None
-        
-        print(f"✅ Importações concluídas: {blueprints_imported} blueprints disponíveis")
-        return modules
-        
-    except Exception as e:
-        print(f"❌ Erro nas importações: {e}")
-        return {'db': None, 'User': None}
-
-def create_simple_admin_user(db, User):
-    """Cria usuário admin simples se não existir"""
-    try:
-        if User is None or db is None:
-            print("⚠️ User model ou DB não disponível, pulando criação de admin")
-            return
-        
+        # Criar usuário admin se não existir
         admin_user = User.query.filter_by(email='admin@bigwhale.com').first()
         if not admin_user:
-            from werkzeug.security import generate_password_hash
             admin_user = User(
                 full_name='Admin BigWhale',
                 email='admin@bigwhale.com',
@@ -162,7 +107,7 @@ def create_simple_admin_user(db, User):
             )
             db.session.add(admin_user)
             
-            # Segundo admin
+            # Criar segundo usuário admin
             admin_user2 = User(
                 full_name='Willian Admin',
                 email='willian@lexxusadm.com.br',
@@ -173,322 +118,214 @@ def create_simple_admin_user(db, User):
             db.session.add(admin_user2)
             
             db.session.commit()
-            print("✅ Usuários admin criados")
+            logger.info("✅ Usuários admin criados")
         else:
-            print("✅ Usuários admin já existem")
+            logger.info("✅ Usuários admin já existem")
             
     except Exception as e:
-        print(f"⚠️ Erro ao criar usuários admin: {e}")
+        logger.error(f"❌ Erro ao inicializar banco: {e}")
         try:
-            if db:
-                db.session.rollback()
+            db.session.rollback()
         except:
             pass
 
-def create_app():
-    """Cria e configura a aplicação Flask"""
-    
-    # Configurar paths antes de qualquer importação
-    configure_python_path()
-    
-    # Importar módulos com fallbacks
-    modules = import_modules_safely()
-    
-    app = Flask(__name__, instance_relative_config=True)
-    
-    # Configuração de Logging
-    if not app.debug:
-        if not os.path.exists('logs'):
-            os.mkdir('logs')
-        file_handler = RotatingFileHandler('logs/nautilus.log', maxBytes=10240, backupCount=10)
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-        ))
-        file_handler.setLevel(logging.INFO)
-        app.logger.addHandler(file_handler)
-        app.logger.setLevel(logging.INFO)
-        app.logger.info('Nautilus startup')
-    
-    # Configuração da Aplicação
-    app.config.from_mapping(
-        SECRET_KEY=os.environ.get('FLASK_SECRET_KEY', 'uma-chave-secreta-bem-dificil-de-adivinhar-987654'),
-        SESSION_COOKIE_SAMESITE='None',
-        SESSION_COOKIE_SECURE=True,
-        SESSION_COOKIE_HTTPONLY=True,
-        PERMANENT_SESSION_LIFETIME=2592000,  # 30 dias
-        AES_ENCRYPTION_KEY=os.environ.get('AES_ENCRYPTION_KEY', 'chave-criptografia-api-bitget-nautilus-sistema-seguro-123456789')
-    )
-    
-    # Configuração do Banco de Dados
-    database_url = os.environ.get('DATABASE_URL')
-    
-    if database_url and os.environ.get('RENDER'):
-        # PostgreSQL em produção no Render
-        if database_url.startswith('postgres://'):
-            database_url = database_url.replace('postgres://', 'postgresql://', 1)
-        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-        print("✅ Conectando ao PostgreSQL em produção")
-    else:
-        # SQLite para desenvolvimento
-        if os.environ.get('RENDER'):
-            db_path = '/tmp/site.db'
-        else:
-            instance_path = app.instance_path
-            if not os.path.exists(instance_path):
-                os.makedirs(instance_path)
-            db_path = os.path.join(instance_path, 'site.db')
-        
-        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-        print(f"✅ Conectando ao SQLite: {db_path}")
+# Inicializar na criação da app
+with app.app_context():
+    init_db()
 
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
-    # Configuração CORS CORRIGIDA
-    CORS(app, 
-         supports_credentials=True, 
-         origins=[
-             "http://localhost:3000", 
-             "http://localhost:3001", 
-             "http://localhost:3002", 
-             "http://127.0.0.1:3000", 
-             "http://127.0.0.1:3001", 
-             "http://127.0.0.1:3002",
-             "https://bwhale.site",
-             "http://bwhale.site",
-             "https://bigwhale-backend.onrender.com"
-         ],
-         allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials", "X-Requested-With"],
-         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-         expose_headers=["Content-Type", "Authorization"])
-    
-    # Inicializar extensões
-    if modules.get('db'):
-        modules['db'].init_app(app)
-        print("✅ Database inicializado")
-    
-    # Configurar Flask-Session
+# Rotas principais
+@app.route('/')
+def home():
+    return jsonify({
+        "message": "🐋 Backend BigWhale Online!",
+        "status": "running",
+        "environment": "Render" if os.environ.get('RENDER') else "Local",
+        "timestamp": datetime.now().isoformat(),
+        "version": "5.0.0"
+    })
+
+@app.route('/api/test')
+def test_route():
+    return jsonify({
+        "message": "🚀 API BigWhale funcionando no Render!",
+        "environment": "Render" if os.environ.get('RENDER') else "Local",
+        "timestamp": datetime.now().isoformat(),
+        "database": "PostgreSQL" if os.environ.get('DATABASE_URL') else "SQLite",
+        "version": "5.0.0",
+        "cors_enabled": True
+    }), 200
+
+@app.route('/api/health')
+def health_check():
     try:
-        from flask_session import Session
-        app.config['SESSION_TYPE'] = 'filesystem'
-        app.config['SESSION_PERMANENT'] = True
-        app.config['SESSION_USE_SIGNER'] = True
-        app.config['SESSION_KEY_PREFIX'] = 'bigwhale:'
-        app.config['SESSION_FILE_DIR'] = os.path.join(app.instance_path, 'flask_session')
-        app.config['SESSION_FILE_THRESHOLD'] = 500
-        app.config['SESSION_FILE_MODE'] = 384
-        app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+        # Testar conexão com banco
+        user_count = User.query.count()
         
-        session_dir = app.config['SESSION_FILE_DIR']
-        if not os.path.exists(session_dir):
-            os.makedirs(session_dir, exist_ok=True)
-            app.logger.info(f"Diretório de sessão criado: {session_dir}")
+        health_data = {
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'database': {
+                'status': 'connected',
+                'users_count': user_count,
+                'type': 'PostgreSQL' if os.environ.get('DATABASE_URL') else 'SQLite'
+            },
+            'environment': 'Render' if os.environ.get('RENDER') else 'Local',
+            'version': '5.0.0',
+            'message': '✅ Sistema funcionando corretamente'
+        }
         
-        Session(app)
-        app.logger.info("Flask-Session inicializado com sucesso")
+        logger.info(f"Health check OK - {user_count} usuários")
+        return jsonify(health_data), 200
         
-    except Exception as session_error:
-        app.logger.error(f"Erro ao configurar Flask-Session: {str(session_error)}")
-        app.config['SESSION_TYPE'] = 'null'
-
-    # Inicializar banco de dados
-    if modules.get('db'):
-        with app.app_context():
-            try:
-                modules['db'].create_all()
-                app.logger.info("Tabelas do banco de dados garantidas na inicialização")
-                
-                # Criar usuários admin
-                create_simple_admin_user(modules['db'], modules.get('User'))
-                
-                # Chamar função de admin credentials se disponível
-                if modules.get('ensure_admin_credentials'):
-                    try:
-                        modules['ensure_admin_credentials']()
-                    except Exception as e:
-                        app.logger.warning(f"Erro ao executar ensure_admin_credentials: {e}")
-            except Exception as db_error:
-                app.logger.error(f"Erro ao inicializar banco: {db_error}")
-
-    # Registrar Blueprints disponíveis
-    blueprints_registered = 0
-    
-    if modules.get('auth_bp'):
-        app.register_blueprint(modules['auth_bp'], url_prefix='/api/auth')
-        blueprints_registered += 1
-        
-    if modules.get('dashboard_bp'):
-        app.register_blueprint(modules['dashboard_bp'], url_prefix='/api/dashboard')
-        blueprints_registered += 1
-        
-    if modules.get('admin_bp'):
-        app.register_blueprint(modules['admin_bp'], url_prefix='/api/admin')
-        blueprints_registered += 1
-        
-    if modules.get('stripe_webhook_bp'):
-        app.register_blueprint(modules['stripe_webhook_bp'], url_prefix='/api')
-        blueprints_registered += 1
-        
-    if modules.get('api_credentials_bp'):
-        app.register_blueprint(modules['api_credentials_bp'], url_prefix='/api')
-        blueprints_registered += 1
-    
-    print(f"✅ {blueprints_registered} blueprints registrados")
-
-    # Middleware de autenticação
-    if modules.get('AuthMiddleware'):
-        modules['AuthMiddleware'](app)
-        print("✅ Auth middleware configurado")
-
-    # ROTAS ESSENCIAIS
-    @app.route('/')
-    def home():
+    except Exception as e:
+        logger.error(f"❌ Health check falhou: {e}")
         return jsonify({
-            "message": "🐋 Backend BigWhale Online!",
-            "status": "running",
-            "environment": "Render" if os.environ.get('RENDER') else "Local",
-            "timestamp": datetime.now().isoformat(),
-            "version": "3.0.0"
-        })
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat(),
+            'message': '❌ Erro no sistema'
+        }), 500
 
-    @app.route('/api/health')
-    def health_check():
-        """Health check com diagnóstico completo"""
-        try:
-            health_data = {
-                "status": "healthy",
-                "message": "Backend BigWhale funcionando!",
-                "environment": "Render" if os.environ.get('RENDER') else "Development",
-                "timestamp": datetime.now().isoformat(),
-                "modules_loaded": len([k for k, v in modules.items() if v is not None]),
-                "blueprints_registered": blueprints_registered,
-                "version": "3.0.0"
-            }
+# ROTAS DE AUTENTICAÇÃO COMPLETAS
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Dados não fornecidos'}), 400
             
-            # Verificar conexão com banco
-            if modules.get('db') and modules.get('User'):
-                try:
-                    user_count = modules['User'].query.count()
-                    health_data['database'] = {
-                        'status': 'connected',
-                        'users_count': user_count,
-                        'connection_test': 'passed'
-                    }
-                except Exception as db_error:
-                    health_data['database'] = {
-                        'status': 'error',
-                        'error': str(db_error),
-                        'connection_test': 'failed'
-                    }
-                    health_data['status'] = 'degraded'
-            else:
-                health_data['database'] = {
-                    'status': 'not_available',
-                    'reason': 'Database or User model not loaded'
-                }
+        email = data.get('email')
+        password = data.get('password')
+        
+        if not email or not password:
+            return jsonify({'error': 'Email e senha são obrigatórios'}), 400
+        
+        user = User.query.filter_by(email=email).first()
+        if user and user.check_password(password) and user.is_active:
+            # Criar sessão
+            session['user_id'] = user.id
+            session['user_email'] = user.email
+            session.permanent = True
             
-            # Verificar blueprints registrados
-            registered_blueprints = [bp.name for bp in app.blueprints.values()]
-            health_data['blueprints'] = {
-                'registered': registered_blueprints,
-                'count': len(registered_blueprints)
-            }
-            
-            return jsonify(health_data), 200
-            
-        except Exception as e:
-            import traceback
+            logger.info(f"✅ Login bem-sucedido: {email}")
             return jsonify({
-                "status": "unhealthy",
-                "message": "Erro crítico na verificação de saúde",
-                "error": str(e),
-                "traceback": traceback.format_exc()[:1000],
-                "timestamp": datetime.now().isoformat()
-            }), 503
-
-    @app.route('/api/test')
-    def test_route():
-        return jsonify({
-            "message": "🚀 API BigWhale funcionando no Render!",
-            "environment": "Render" if os.environ.get('RENDER') else "Development",
-            "modules_available": [k for k, v in modules.items() if v is not None],
-            "timestamp": datetime.now().isoformat(),
-            "version": "3.0.0",
-            "cors_fixed": True
-        }), 200
-
-    @app.route('/api/debug/modules')
-    def debug_modules():
-        """Debug de módulos carregados"""
-        return jsonify({
-            "modules": {k: str(type(v)) for k, v in modules.items()},
-            "python_path": sys.path[:5],
-            "current_dir": os.getcwd(),
-            "environment": {
-                "RENDER": os.environ.get('RENDER'),
-                "DATABASE_URL": bool(os.environ.get('DATABASE_URL'))
-            }
-        }), 200
-
-    # Login básico se User model estiver disponível
-    if modules.get('User') and modules.get('db'):
-        @app.route('/api/auth/login', methods=['POST'])
-        def login():
-            """Endpoint básico de login"""
-            try:
-                data = request.get_json()
-                if not data:
-                    return jsonify({'error': 'Dados não fornecidos'}), 400
-                    
-                email = data.get('email')
-                password = data.get('password')
-                
-                if not email or not password:
-                    return jsonify({'error': 'Email e senha são obrigatórios'}), 400
-                
-                user = modules['User'].query.filter_by(email=email).first()
-                if user and user.check_password(password) and user.is_active:
-                    return jsonify({
-                        'success': True,
-                        'message': 'Login realizado com sucesso',
-                        'user': {
-                            'id': user.id,
-                            'email': user.email,
-                            'full_name': user.full_name,
-                            'is_admin': user.is_admin
-                        }
-                    }), 200
-                else:
-                    return jsonify({'error': 'Credenciais inválidas'}), 401
-                    
-            except Exception as e:
-                app.logger.error(f"Erro no login: {e}")
-                return jsonify({'error': 'Erro interno do servidor'}), 500
-
-    # Tratamento de erros
-    @app.errorhandler(404)
-    def not_found(error):
-        return jsonify({'error': 'Endpoint não encontrado'}), 404
-
-    @app.errorhandler(500)
-    def internal_error(error):
+                'success': True,
+                'message': 'Login realizado com sucesso',
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'full_name': user.full_name,
+                    'is_admin': user.is_admin
+                }
+            }), 200
+        else:
+            logger.warning(f"❌ Tentativa de login falhada: {email}")
+            return jsonify({'error': 'Credenciais inválidas'}), 401
+            
+    except Exception as e:
+        logger.error(f"❌ Erro no login: {e}")
         return jsonify({'error': 'Erro interno do servidor'}), 500
 
-    return app
+@app.route('/api/auth/session', methods=['GET'])
+def check_session():
+    """Verifica se o usuário está logado"""
+    try:
+        if 'user_id' in session:
+            user = User.query.get(session['user_id'])
+            if user and user.is_active:
+                return jsonify({
+                    'authenticated': True,
+                    'user': {
+                        'id': user.id,
+                        'email': user.email,
+                        'full_name': user.full_name,
+                        'is_admin': user.is_admin
+                    }
+                }), 200
+        
+        return jsonify({'authenticated': False}), 200
+        
+    except Exception as e:
+        logger.error(f"❌ Erro ao verificar sessão: {e}")
+        return jsonify({'authenticated': False}), 200
 
-# Criar aplicação para o Render
-application = create_app()
+@app.route('/api/auth/logout', methods=['POST'])
+def logout():
+    """Logout do usuário"""
+    try:
+        session.clear()
+        return jsonify({'success': True, 'message': 'Logout realizado com sucesso'}), 200
+    except Exception as e:
+        logger.error(f"❌ Erro no logout: {e}")
+        return jsonify({'error': 'Erro interno do servidor'}), 500
+
+# WEBHOOK STRIPE BÁSICO
+@app.route('/api/stripe/webhook', methods=['POST'])
+def stripe_webhook():
+    """Webhook básico do Stripe"""
+    try:
+        payload = request.get_data()
+        sig_header = request.headers.get('Stripe-Signature')
+        
+        logger.info(f"Webhook Stripe recebido - Tamanho: {len(payload)} bytes")
+        
+        # Aqui você implementaria a verificação da assinatura do Stripe
+        # Por enquanto, apenas logamos o recebimento
+        
+        return jsonify({'received': True}), 200
+        
+    except Exception as e:
+        logger.error(f"❌ Erro no webhook Stripe: {e}")
+        return jsonify({'error': 'Erro no webhook'}), 400
+
+@app.route('/api/users', methods=['GET'])
+def list_users():
+    try:
+        users = User.query.all()
+        users_data = []
+        for user in users:
+            users_data.append({
+                'id': user.id,
+                'email': user.email,
+                'full_name': user.full_name,
+                'is_admin': user.is_admin,
+                'is_active': user.is_active,
+                'created_at': user.created_at.isoformat()
+            })
+        
+        return jsonify({
+            'users': users_data,
+            'count': len(users_data)
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"❌ Erro ao listar usuários: {e}")
+        return jsonify({'error': 'Erro interno do servidor'}), 500
+
+# Tratamento de erros
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({'error': 'Endpoint não encontrado'}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({'error': 'Erro interno do servidor'}), 500
+
+# Variável para o Render
+application = app
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     
     print("🚀 Iniciando Backend BigWhale...")
     print(f"🌐 Porta: {port}")
-    print(f"🔧 Ambiente: {'Render' if os.environ.get('RENDER') else 'Development'}")
+    print(f"🔧 Ambiente: {'Render' if os.environ.get('RENDER') else 'Local'}")
+    print(f"💾 Banco: {'PostgreSQL' if os.environ.get('DATABASE_URL') else 'SQLite'}")
     print("📧 Credenciais disponíveis:")
     print("   admin@bigwhale.com / Raikamaster1@")
     print("   willian@lexxusadm.com.br / Bigwhale202021@")
     
-    application.run(
+    app.run(
         host='0.0.0.0',
         port=port,
         debug=False
