@@ -211,9 +211,7 @@ def create_app(config_name='default'):
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(stripe_webhook_bp, url_prefix='/api')
 
-    # Inicializar SecureAPIService e registrar suas rotas
-    # Inicializar SecureAPIService (versão corrigida)
-    secure_api_service = SecureAPIService(app)
+    # Inicializar APIPersistence e CredentialMonitor
     from utils.api_persistence import APIPersistence
     from services.credential_monitor import CredentialMonitor
     
@@ -223,7 +221,7 @@ def create_app(config_name='default'):
     # Crie a instância de CredentialMonitor, passando a APIPersistence
     credential_monitor_instance = CredentialMonitor(app, api_persistence_instance)
     
-    # Inicialize SecureAPIService
+    # Inicialize SecureAPIService UMA VEZ APENAS
     secure_api_service = SecureAPIService(app)
 
     # --- Rota de Teste Simples ---
