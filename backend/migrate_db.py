@@ -5,7 +5,7 @@ Script de migração simples para o banco de dados
 """
 
 import os
-from sqlalchemy import text
+from sqlalchemy import text, inspect
 from database import db
 from app import create_app
 
@@ -23,90 +23,35 @@ def migrate_database():
             db.create_all()
             print("✅ Tabelas verificadas/criadas!")
             
-            # Lista de comandos SQL para executar
-            migrations = [
-                # Adicionar coluna nautilus_trader_id se não existir
-                """
-                DO $$ 
-                BEGIN 
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                                  WHERE table_name='users' AND column_name='nautilus_trader_id') THEN
-                        ALTER TABLE users ADD COLUMN nautilus_trader_id VARCHAR(120);
-                        RAISE NOTICE 'Coluna nautilus_trader_id adicionada';
-                    ELSE
-                        RAISE NOTICE 'Coluna nautilus_trader_id já existe';
-                    END IF;
-                END $$;
-                """,
-                
-                # Adicionar coluna operational_balance_usd se não existir
-                """
-                DO $$ 
-                BEGIN 
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                                  WHERE table_name='users' AND column_name='operational_balance_usd') THEN
-                        ALTER TABLE users ADD COLUMN operational_balance_usd FLOAT DEFAULT 0.0;
-                        RAISE NOTICE 'Coluna operational_balance_usd adicionada';
-                    ELSE
-                        RAISE NOTICE 'Coluna operational_balance_usd já existe';
-                    END IF;
-                END $$;
-                """,
-                
-                # Adicionar coluna api_configured se não existir
-                """
-                DO $$ 
-                BEGIN 
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                                  WHERE table_name='users' AND column_name='api_configured') THEN
-                        ALTER TABLE users ADD COLUMN api_configured BOOLEAN DEFAULT FALSE;
-                        RAISE NOTICE 'Coluna api_configured adicionada';
-                    ELSE
-                        RAISE NOTICE 'Coluna api_configured já existe';
-                    END IF;
-                END $$;
-                """,
-                
-                # Adicionar coluna updated_at se não existir
-                """
-                DO $$ 
-                BEGIN 
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                                  WHERE table_name='users' AND column_name='updated_at') THEN
-                        ALTER TABLE users ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-                        RAISE NOTICE 'Coluna updated_at adicionada';
-                    ELSE
-                        RAISE NOTICE 'Coluna updated_at já existe';
-                    END IF;
-                END $$;
-                """,
-                
-                # Adicionar coluna commission_rate se não existir
-                """
-                DO $$ 
-                BEGIN 
-                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                                  WHERE table_name='users' AND column_name='commission_rate') THEN
-                        ALTER TABLE users ADD COLUMN commission_rate FLOAT DEFAULT 0.5;
-                        RAISE NOTICE 'Coluna commission_rate adicionada';
-                    ELSE
-                        RAISE NOTICE 'Coluna commission_rate já existe';
-                    END IF;
-                END $$;
-                """
+            # Verificar colunas existentes
+            inspector = inspect(db.engine)
+            existing_columns = [col['name'] for col in inspector.get_columns('users')]
+            print(f"📋 Colunas existentes: {existing_columns}")
+            
+            # Lista de colunas para adicionar
+            columns_to_add = [
+                ('nautilus_trader_id', 'VARCHAR(120)'),
+                ('operational_balance_usd', 'FLOAT DEFAULT 0.0'),
+                ('api_configured', 'BOOLEAN DEFAULT FALSE'),
+                ('updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'),
+                ('commission_rate', 'FLOAT DEFAULT 0.5')
             ]
             
-            # Executar cada migração
-            for i, migration in enumerate(migrations, 1):
-                try:
-                    print(f"📝 Executando migração {i}...")
-                    db.session.execute(text(migration))
-                    db.session.commit()
-                    print(f"✅ Migração {i} executada com sucesso!")
-                    
-                except Exception as e:
-                    print(f"⚠️  Migração {i} falhou: {e}")
-                    db.session.rollback()
+            # Adicionar colunas que não existem
+            for column_name, column_type in columns_to_add:
+                if column_name not in existing_columns:
+                    try:
+                        print(f"➕ Adicionando coluna: {column_name}")
+                        sql = f"ALTER TABLE users ADD COLUMN {column_name} {column_type};"
+                        db.session.execute(text(sql))
+                        db.session.commit()
+                        print(f"✅ Coluna {column_name} adicionada com sucesso!")
+                        
+                    except Exception as e:
+                        print(f"❌ Erro ao adicionar coluna {column_name}: {e}")
+                        db.session.rollback()
+                else:
+                    print(f"ℹ️  Coluna {column_name} já existe")
             
             print("🎉 Migrações concluídas!")
             return True
@@ -117,4 +62,6 @@ def migrate_database():
             return False
 
 if __name__ == "__main__":
-    migrate_database()
+    success = migrate_database()
+    if not success:
+        exit(1)
