@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Teste CSP - Nautilus</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https:; connect-src 'self' https://bigwhale-backend.onrender.com ws://localhost:3000 *.kaspersky-labs.com *.avast.com *.avg.com *.norton.com *.mcafee.com *.bitdefender.com *.eset.com; font-src 'self' https://fonts.gstatic.com; object-src 'none'; media-src 'self'; frame-src 'none'; base-uri 'self'; form-action 'self'">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success { background: #2e7d32; }
+        .error { background: #d32f2f; }
+        .warning { background: #f57c00; }
+        .info { background: #1976d2; }
+        button {
+            background: #f0b90b;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #e6a500;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔒 Teste de CSP - Nautilus Automação</h1>
+    <p>Este arquivo testa se o Content Security Policy está permitindo conexões com o backend.</p>
+    
+    <div id="results"></div>
+    
+    <button onclick="testBackendHealth()">Testar /api/health</button>
+    <button onclick="testBackendSession()">Testar /api/auth/session</button>
+    <button onclick="clearResults()">Limpar Resultados</button>
+    
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            results.appendChild(div);
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testBackendHealth() {
+            log('🔍 Testando conectividade com /api/health...', 'info');
+            
+            try {
+                const response = await fetch('https://bigwhale-backend.onrender.com/api/health', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Backend Health OK: ${JSON.stringify(data)}`, 'success');
+                } else {
+                    log(`❌ Backend Health Error: ${response.status} - ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                if (error.message.includes('Content Security Policy')) {
+                    log(`🚫 CSP BLOQUEOU a conexão: ${error.message}`, 'error');
+                } else {
+                    log(`❌ Erro ao conectar com backend: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        async function testBackendSession() {
+            log('🔍 Testando conectividade com /api/auth/session...', 'info');
+            
+            try {
+                const response = await fetch('https://bigwhale-backend.onrender.com/api/auth/session', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Session Check OK: ${JSON.stringify(data)}`, 'success');
+                } else {
+                    log(`⚠️ Session Check: ${response.status} - ${response.statusText}`, 'warning');
+                }
+            } catch (error) {
+                if (error.message.includes('Content Security Policy')) {
+                    log(`🚫 CSP BLOQUEOU a conexão: ${error.message}`, 'error');
+                } else {
+                    log(`❌ Erro ao conectar com session: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        // Teste automático ao carregar
+        window.addEventListener('load', function() {
+            log('🚀 Página carregada. CSP aplicado com sucesso!', 'success');
+            log('📋 CSP permite conexões para: https://bigwhale-backend.onrender.com', 'info');
+            
+            // Teste automático após 1 segundo
+            setTimeout(() => {
+                testBackendHealth();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

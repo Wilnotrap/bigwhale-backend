@@ -18,6 +18,7 @@ import UserDashboardView from './components/Admin/UserDashboardView';
 import UserTrades from './components/Admin/UserTrades';
 import UserStats from './components/Admin/UserStats';
 
+
 // Contextos
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
@@ -230,6 +231,7 @@ const AppRoutes = () => {
               user ? <Dashboard user={user} /> : <Navigate to="/login" />
             } 
           />
+          
           <Route 
             path="/" 
             element={

@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operações Ativas - Nautilus</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-group label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            opacity: 0.9;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 0.9rem;
+            min-width: 150px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            align-self: flex-end;
+        }
+
+        .btn-primary {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2rem;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .operations-table {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            color: #333;
+        }
+
+        th {
+            background: linear-gradient(135deg, #4a69bd 0%, #3c5aa6 100%);
+            color: white;
+            padding: 15px 10px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 0.85rem;
+        }
+
+        tr:hover {
+            background: rgba(74, 105, 189, 0.1);
+        }
+
+        .symbol {
+            font-weight: bold;
+            color: #2563eb;
+        }
+
+        .side-buy {
+            color: #16a34a;
+            font-weight: bold;
+            background: rgba(22, 163, 74, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .side-sell {
+            color: #dc2626;
+            font-weight: bold;
+            background: rgba(220, 38, 38, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .pnl-positive {
+            color: #16a34a;
+            font-weight: bold;
+        }
+
+        .pnl-negative {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
+        .leverage {
+            background: #f59e0b;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .status-active {
+            background: #10b981;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .error {
+            background: rgba(220, 38, 38, 0.2);
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid rgba(220, 38, 38, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .controls-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-group input,
+            .filter-group select {
+                min-width: 100%;
+            }
+
+            table {
+                font-size: 0.75rem;
+            }
+
+            th, td {
+                padding: 8px 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Operações Ativas - Nautilus</h1>
+            <div class="subtitle">Monitore e filtre suas operações em tempo real</div>
+        </div>
+
+        <div class="controls">
+            <div class="controls-row">
+                <div class="filter-group">
+                    <label>Símbolo:</label>
+                    <input type="text" id="symbolFilter" placeholder="Ex: BTCUSDT">
+                </div>
+
+                <div class="filter-group">
+                    <label>Lado:</label>
+                    <select id="sideFilter">
+                        <option value="">Todos</option>
+                        <option value="BUY">Compra</option>
+                        <option value="SELL">Venda</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Alavancagem:</label>
+                    <select id="leverageFilter">
+                        <option value="">Todas</option>
+                        <option value="10">10x</option>
+                        <option value="20">20x</option>
+                        <option value="50">50x</option>
+                        <option value="100">100x</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>PnL Mínimo:</label>
+                    <input type="number" id="pnlMinFilter" placeholder="0.00" step="0.01">
+                </div>
+
+                <button class="btn btn-primary" onclick="loadOperations()">🔄 Atualizar</button>
+                <button class="btn btn-secondary" onclick="clearFilters()">🧹 Limpar Filtros</button>
+            </div>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="totalOperations">0</div>
+                <div class="stat-label">Total de Operações</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalPositive">0</div>
+                <div class="stat-label">Posições Positivas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalNegative">0</div>
+                <div class="stat-label">Posições Negativas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalPnL">$0.00</div>
+                <div class="stat-label">PnL Total</div>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">
+            🔄 Carregando operações...
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div class="operations-table" id="operationsTable" style="display: none;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Símbolo</th>
+                        <th>Lado</th>
+                        <th>Alavancagem</th>
+                        <th>Preço Entrada</th>
+                        <th>Preço Atual</th>
+                        <th>Quantidade</th>
+                        <th>PnL</th>
+                        <th>Margem</th>
+                        <th>Status</th>
+                        <th>Data Criação</th>
+                    </tr>
+                </thead>
+                <tbody id="operationsBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div id="noData" class="no-data" style="display: none;">
+            📭 Nenhuma operação encontrada com os filtros aplicados
+        </div>
+    </div>
+
+    <script>
+        let allOperations = [];
+        let filteredOperations = [];
+
+        async function authenticate() {
+            const response = await fetch('https://bw.mdsa.com.br/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: 'admin@bigwhale.com',
+                    password: 'bigwhale'
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                return {
+                    token: data.token,
+                    userId: data.userId
+                };
+            } else {
+                throw new Error('Falha na autenticação');
+            }
+        }
+
+        async function fetchActiveOperations(token, userId) {
+            const response = await fetch('https://bw.mdsa.com.br/operation/active-operations', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': token,
+                    'auth-userid': userId.toString()
+                }
+            });
+
+            if (response.ok) {
+                return await response.json();
+            } else {
+                throw new Error(`Erro ao buscar operações: ${response.status}`);
+            }
+        }
+
+        function formatNumber(value, decimals = 4) {
+            if (value === null || value === undefined || value === '') return '-';
+            return parseFloat(value).toFixed(decimals);
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleString('pt-BR');
+        }
+
+        function calculateStats(operations) {
+            const total = operations.length;
+            let positive = 0;
+            let negative = 0;
+            let totalPnL = 0;
+
+            operations.forEach(op => {
+                if (op.position && op.position.unrealizedPL) {
+                    const pnl = parseFloat(op.position.unrealizedPL);
+                    totalPnL += pnl;
+                    if (pnl > 0) positive++;
+                    else if (pnl < 0) negative++;
+                }
+            });
+
+            document.getElementById('totalOperations').textContent = total;
+            document.getElementById('totalPositive').textContent = positive;
+            document.getElementById('totalNegative').textContent = negative;
+            document.getElementById('totalPnL').textContent = `$${formatNumber(totalPnL, 2)}`;
+        }
+
+        function renderOperations(operations) {
+            const tbody = document.getElementById('operationsBody');
+            tbody.innerHTML = '';
+
+            if (operations.length === 0) {
+                document.getElementById('operationsTable').style.display = 'none';
+                document.getElementById('noData').style.display = 'block';
+                return;
+            }
+
+            document.getElementById('operationsTable').style.display = 'block';
+            document.getElementById('noData').style.display = 'none';
+
+            operations.forEach(op => {
+                const row = document.createElement('tr');
+                
+                const pnl = op.position?.unrealizedPL ? parseFloat(op.position.unrealizedPL) : 0;
+                const pnlClass = pnl > 0 ? 'pnl-positive' : pnl < 0 ? 'pnl-negative' : '';
+                const sideClass = op.side === 'BUY' ? 'side-buy' : 'side-sell';
+
+                row.innerHTML = `
+                    <td>${op.id}</td>
+                    <td class="symbol">${op.symbol}</td>
+                    <td><span class="${sideClass}">${op.side === 'BUY' ? 'COMPRA' : 'VENDA'}</span></td>
+                    <td><span class="leverage">${op.leverage}x</span></td>
+                    <td>$${formatNumber(op.position?.openPriceAvg || op.price)}</td>
+                    <td>$${formatNumber(op.position?.markPrice || '-')}</td>
+                    <td>${formatNumber(op.position?.total || '-', 0)}</td>
+                    <td class="${pnlClass}">$${formatNumber(pnl, 2)}</td>
+                    <td>$${formatNumber(op.position?.marginSize || '-', 2)}</td>
+                    <td><span class="status-active">${op.status.toUpperCase()}</span></td>
+                    <td>${formatDate(op.createdAt)}</td>
+                `;
+
+                tbody.appendChild(row);
+            });
+        }
+
+        function applyFilters() {
+            const symbolFilter = document.getElementById('symbolFilter').value.toLowerCase();
+            const sideFilter = document.getElementById('sideFilter').value;
+            const leverageFilter = document.getElementById('leverageFilter').value;
+            const pnlMinFilter = parseFloat(document.getElementById('pnlMinFilter').value) || null;
+
+            filteredOperations = allOperations.filter(op => {
+                // Filtro por símbolo
+                if (symbolFilter && !op.symbol.toLowerCase().includes(symbolFilter)) {
+                    return false;
+                }
+
+                // Filtro por lado
+                if (sideFilter && op.side !== sideFilter) {
+                    return false;
+                }
+
+                // Filtro por alavancagem
+                if (leverageFilter && op.leverage !== leverageFilter) {
+                    return false;
+                }
+
+                // Filtro por PnL mínimo
+                if (pnlMinFilter !== null && op.position?.unrealizedPL) {
+                    const pnl = parseFloat(op.position.unrealizedPL);
+                    if (pnl < pnlMinFilter) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            calculateStats(filteredOperations);
+            renderOperations(filteredOperations);
+        }
+
+        function clearFilters() {
+            document.getElementById('symbolFilter').value = '';
+            document.getElementById('sideFilter').value = '';
+            document.getElementById('leverageFilter').value = '';
+            document.getElementById('pnlMinFilter').value = '';
+            
+            filteredOperations = [...allOperations];
+            calculateStats(filteredOperations);
+            renderOperations(filteredOperations);
+        }
+
+        async function loadOperations() {
+            try {
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('error').style.display = 'none';
+                document.getElementById('operationsTable').style.display = 'none';
+                document.getElementById('noData').style.display = 'none';
+                document.getElementById('stats').style.display = 'none';
+
+                const auth = await authenticate();
+                const operations = await fetchActiveOperations(auth.token, auth.userId);
+
+                allOperations = operations;
+                filteredOperations = [...allOperations];
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('stats').style.display = 'grid';
+
+                calculateStats(filteredOperations);
+                renderOperations(filteredOperations);
+
+                console.log('Operações carregadas:', operations);
+
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = `Erro: ${error.message}`;
+                console.error('Erro ao carregar operações:', error);
+            }
+        }
+
+        // Event listeners para filtros em tempo real
+        document.getElementById('symbolFilter').addEventListener('input', applyFilters);
+        document.getElementById('sideFilter').addEventListener('change', applyFilters);
+        document.getElementById('leverageFilter').addEventListener('change', applyFilters);
+        document.getElementById('pnlMinFilter').addEventListener('input', applyFilters);
+
+        // Carregar operações ao inicializar
+        loadOperations();
+
+        // Auto-refresh a cada 30 segundos
+        setInterval(loadOperations, 30000);
+    </script>
+</body>
+</html> 

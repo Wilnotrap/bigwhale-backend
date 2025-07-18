@@ -43,19 +43,12 @@ export const SECURITY_CONFIG = {
         "'self'", 
         'ws://localhost:3000',
         'https://bigwhale-backend.onrender.com',
-        // Permitir conexões de software de segurança legítimo
-        '*.kaspersky-labs.com',
-        '*.avast.com',
-        '*.avg.com',
-        '*.norton.com',
-        '*.mcafee.com',
-        '*.bitdefender.com',
-        '*.eset.com'
+
       ],
       'font-src': ["'self'", 'https://fonts.gstatic.com'],
       'object-src': ["'none'"],
       'media-src': ["'self'"],
-      'frame-src': ["'none'"],
+      'frame-src': ["'self'"],
       'base-uri': ["'self'"],
       'form-action': ["'self'"]
     }

@@ -17,7 +17,8 @@ import {
   DialogContent,
   useTheme,
   useMediaQuery,
-  Tooltip
+  Tooltip,
+  CircularProgress
 } from '@mui/material';
 import {
   AccountCircle,
@@ -30,6 +31,8 @@ import {
   History,
   Close
 } from '@mui/icons-material';
+import Lottie from 'react-lottie';
+// REMOVIDO: import character3AnimationData from '../../assets/lottie_animations/charecter_3.json';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
@@ -62,6 +65,17 @@ const Dashboard = () => {
   const [commissionBalance, setCommissionBalance] = useState(0);
   const [hideValues, setHideValues] = useState(false);
   const [autoSync, setAutoSync] = useState(false);
+  const [showActiveSignals, setShowActiveSignals] = useState(false);
+
+  const defaultOptions = {
+    loop: true,
+    autoplay: true,
+    animationData: null, // Será carregado pela URL
+    rendererSettings: {
+      preserveAspectRatio: 'xMidYMid slice'
+    },
+    path: 'https://assets3.lottiefiles.com/packages/lf20_qejx6t3a.json' // charecter_3 CDN link
+  };
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -117,6 +131,112 @@ const Dashboard = () => {
 
   const handlePaymentClick = (link) => {
     window.open(link, '_blank', 'noopener,noreferrer');
+  };
+
+  // Verificar status das credenciais quando componente carrega
+  useEffect(() => {
+    const checkCredentials = async () => {
+      try {
+        // setCheckingCredentials(true); // Removed as per edit hint
+        const result = await dashboardService.checkCredentialsStatus();
+        // setCredentialsStatus(result.status); // Removed as per edit hint
+      } catch (error) {
+        console.error('Erro ao verificar credenciais:', error);
+        // setCredentialsStatus(null); // Removed as per edit hint
+      } finally {
+        // setCheckingCredentials(false); // Removed as per edit hint
+      }
+    };
+
+    checkCredentials();
+  }, []);
+
+  const handleConnectApi = async () => {
+    try {
+      toast.info('🔗 Conectando API...', { autoClose: 2000 });
+      const result = await dashboardService.reconnectApi();
+      if (result.success) {
+        toast.success('🎉 API conectada com sucesso! Dados atualizados.', { autoClose: 3000 });
+        // Preencher os campos do perfil/API
+        // if (result.bitget_api_key) setApiKey(result.bitget_api_key);
+        // if (result.bitget_api_secret) setApiSecret(result.bitget_api_secret);
+        // if (result.bitget_passphrase) setPassphrase(result.bitget_passphrase);
+        // Atualizar dashboard
+        // setApiStatus('conectada');
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        // setApiStatus('não configurada');
+        toast.error(result.message || 'Erro ao conectar API');
+      }
+    } catch (error) {
+      console.error('Erro ao conectar API:', error);
+      // setApiStatus('erro');
+      if (error.message.includes('Configure') || error.message.includes('Reconfigure') || error.message.includes('perfil')) {
+        toast.error(
+          <div>
+            <div>{error.message}</div>
+            <button 
+              // onClick={() => setActiveTab('profile')}
+              style={{
+                marginTop: '8px',
+                padding: '4px 8px',
+                backgroundColor: '#4CAF50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px'
+              }}
+            >
+              Ir para Perfil
+            </button>
+          </div>,
+          { autoClose: 5000 }
+        );
+      } else {
+        toast.error(error.message || 'Erro ao conectar API');
+      }
+    }
+  };
+
+  // Componente para mostrar status das credenciais
+  const CredentialsStatusIndicator = () => {
+    // if (checkingCredentials) { // Removed as per edit hint
+    //   return ( // Removed as per edit hint
+    //     <Tooltip title="Verificando credenciais..."> // Removed as per edit hint
+    //       <CircularProgress size={16} /> // Removed as per edit hint
+    //     </Tooltip> // Removed as per edit hint
+    //   ); // Removed as per edit hint
+    // } // Removed as per edit hint
+
+    // if (!credentialsStatus) { // Removed as per edit hint
+    //   return ( // Removed as per edit hint
+    //     <Tooltip title="Status das credenciais desconhecido"> // Removed as per edit hint
+    //       <span style={{ color: '#666' }}>❓</span> // Removed as per edit hint
+    //     </Tooltip> // Removed as per edit hint
+    //   ); // Removed as per edit hint
+    // } // Removed as per edit hint
+
+    // if (credentialsStatus.has_credentials) { // Removed as per edit hint
+    //   return ( // Removed as per edit hint
+    //     <Tooltip title="Credenciais configuradas"> // Removed as per edit hint
+    //       <span style={{ color: '#4CAF50' }}>✅</span> // Removed as per edit hint
+    //     </Tooltip> // Removed as per edit hint
+    //   ); // Removed as per edit hint
+    // } // Removed as per edit hint
+
+    // const missing = []; // Removed as per edit hint
+    // if (!credentialsStatus.has_api_key) missing.push('API Key'); // Removed as per edit hint
+    // if (!credentialsStatus.has_api_secret) missing.push('API Secret'); // Removed as per edit hint
+    // if (!credentialsStatus.has_passphrase) missing.push('Passphrase'); // Removed as per edit hint
+
+    // return ( // Removed as per edit hint
+    //   <Tooltip title={`Credenciais faltando: ${missing.join(', ')}`}> // Removed as per edit hint
+    //     <span style={{ color: '#ff9800' }}>⚠️</span> // Removed as per edit hint
+    //   </Tooltip> // Removed as per edit hint
+    // ); // Removed as per edit hint
   };
 
   const fetchCommissionBalance = async () => {
@@ -231,6 +351,61 @@ const Dashboard = () => {
             justifyContent: 'flex-end',
             flexWrap: 'wrap'
           }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CredentialsStatusIndicator />
+              <Tooltip title="Conectar API">
+                <Button
+                  variant="outlined"
+                  color="success"
+                  onClick={handleConnectApi}
+                  size="small"
+                  sx={{
+                    minWidth: '120px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: 1.5,
+                    borderColor: '#4CAF50',
+                    color: '#4CAF50',
+                    '&:hover': {
+                      backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                      borderColor: '#4CAF50'
+                    }
+                  }}
+                >
+                  🔗 Conectar API
+                </Button>
+              </Tooltip>
+
+              <Tooltip title="Visualizar Sinais Ativos do Nautilus">
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  onClick={() => setShowActiveSignals(true)}
+                  size="small"
+                  sx={{
+                    minWidth: '120px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: 1.5,
+                    borderColor: '#2196F3',
+                    color: '#2196F3',
+                    '&:hover': {
+                      backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                      borderColor: '#2196F3'
+                    }
+                  }}
+                >
+                  📊 Sinais Ativos
+                </Button>
+              </Tooltip>
+            </Box>
+
             <Tooltip title="Sincronizar trades manualmente">
               <IconButton 
                 onClick={handleSync} 
@@ -297,19 +472,33 @@ const Dashboard = () => {
               </IconButton>
             </Tooltip>
 
+            <Tooltip title={user ? user.username : 'Usuário'}>
             <IconButton
               size="large"
+                aria-label="account of current user"
+                aria-controls="menu-appbar"
+                aria-haspopup="true"
               onClick={handleMenu}
               color="inherit"
             >
               <Avatar sx={{ width: 32, height: 32 }}>
-                <AccountCircle />
+                  <Lottie options={defaultOptions} height={32} width={32} />
               </Avatar>
             </IconButton>
+            </Tooltip>
           </Box>
 
           <Menu
+            id="menu-appbar"
             anchorEl={anchorEl}
+            anchorOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
             open={Boolean(anchorEl)}
             onClose={handleClose}
             onClick={handleClose}
@@ -490,6 +679,54 @@ const Dashboard = () => {
           <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 2, fontStyle: 'italic' }}>
             (Modo sem cobrança de comissão)
           </Typography>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Sinais Ativos */}
+      <Dialog
+        open={showActiveSignals}
+        onClose={() => setShowActiveSignals(false)}
+        maxWidth="xl"
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#1a1a1a',
+            color: 'white',
+            minHeight: '80vh'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          backgroundColor: '#2d2d2d',
+          borderBottom: '1px solid #444'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6" sx={{ fontSize: '1.2rem', fontWeight: 700 }}>
+              📊 Sinais Ativos - Nautilus Automação
+            </Typography>
+          </Box>
+          <IconButton 
+            onClick={() => setShowActiveSignals(false)} 
+            sx={{ color: 'white' }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 0 }}>
+          <iframe
+            src="/test_active_operations_proxy.html"
+            style={{
+              width: '100%',
+              height: '70vh',
+              border: 'none',
+              backgroundColor: '#1a1a1a'
+            }}
+            title="Sinais Ativos do Nautilus"
+          />
         </DialogContent>
       </Dialog>
     </Box>

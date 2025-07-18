@@ -4,6 +4,8 @@ from database import db
 from models.user import User
 from werkzeug.security import generate_password_hash
 import os
+from backend.database import db
+from backend.models.invite_code import InviteCode
 
 # Configuração básica do Flask
 app = Flask(__name__)
@@ -67,5 +69,22 @@ def create_admin_users():
         for user in User.query.all():
             print(f"- {user.email} (ativo: {user.is_active}, admin: {user.is_admin})")
 
+def create_invite_codes():
+    codes = [
+        {"code": "Bigwhale81#", "description": "Convite padrão limitado (10 usos)", "max_uses": 10},
+        {"code": "Nautilus_big81#", "description": "Convite equipe ilimitado", "max_uses": None},
+    ]
+    for c in codes:
+        existing = InviteCode.query.filter_by(code=c["code"]).first()
+        if not existing:
+            invite = InviteCode(code=c["code"], description=c["description"], max_uses=c["max_uses"])
+            db.session.add(invite)
+    db.session.commit()
+    print("Códigos de convite criados/atualizados com sucesso!")
+
 if __name__ == '__main__':
     create_admin_users()
+    from backend.app import app
+    with app.app_context():
+        db.create_all()
+        create_invite_codes()

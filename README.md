@@ -1,8 +1,15 @@
-# Nautilus Automação - Plataforma de Trading Profissional
+# 🚀 Nautilus Automação - Plataforma de Trading Profissional
 
 ![Nautilus Automação Logo](frontend/public/favicon.svg)
 
 Uma plataforma avançada de trading integrada com a API da Bitget, oferecendo análises em tempo real, gerenciamento de trades e dashboard completo para traders profissionais.
+
+## ✅ Status do Projeto
+
+- 🎯 **ORGANIZADO E LIMPO** - Estrutura profissional implementada
+- 🗄️ **PostgreSQL MIGRADO** - Banco de dados em produção
+- 🔧 **CREDENCIAIS API CORRIGIDAS** - Sistema funcionando perfeitamente
+- 📦 **PRONTO PARA DEPLOY** - Backend e Frontend organizados
 
 ## 🚀 Características Principais
 
@@ -12,6 +19,18 @@ Uma plataforma avançada de trading integrada com a API da Bitget, oferecendo an
 - **Interface Moderna**: Design responsivo inspirado nas melhores plataformas de trading
 - **Análise de Performance**: Gráficos de curva de lucro e métricas detalhadas
 - **Gerenciamento de Trades**: Visualização de posições abertas e histórico completo
+
+## 📁 Estrutura Organizada
+
+```
+RetesteProjeto/
+├── 📁 backend/          # ✅ Código principal do backend
+├── 📁 frontend/         # ✅ Código principal do frontend
+├── 📁 docs/            # ✅ Documentação organizada
+├── 📁 backend-deploy/   # ✅ Versão para deploy (Render)
+├── 📁 frontend-deploy/  # ✅ Versão para deploy (Hostinger)
+└── 📁 scripts/         # ✅ Scripts utilitários
+```
 
 ## 🛠️ Tecnologias Utilizadas
 

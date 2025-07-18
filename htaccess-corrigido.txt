@@ -1,0 +1,71 @@
+RewriteEngine On
+
+# Forcar HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Headers de Seguranca
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
+Header always set X-XSS-Protection "1; mode=block"
+Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+# CSP para BigWhale Backend - CORRIGIDO para antivirus
+Header set Content-Security-Policy "default-src 'self'; connect-src 'self' https://bigwhale-backend.onrender.com wss://bigwhale-backend.onrender.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.kaspersky-labs.com https://*.avast.com https://*.avg.com https://*.norton.com https://*.mcafee.com https://*.bitdefender.com https://*.eset.com; img-src 'self' data: https: blob:; media-src 'self' blob:; object-src 'none'; frame-src 'none';"
+
+# CORS Headers
+Header always set Access-Control-Allow-Origin "https://bigwhale-backend.onrender.com"
+Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, X-API-KEY"
+Header always set Access-Control-Allow-Credentials "true"
+
+# MIME Types - CORRIGIDO
+<IfModule mod_mime.c>
+    AddType text/css .css
+    AddType application/javascript .js
+    AddType application/json .json
+    AddType image/svg+xml .svg
+    AddType font/woff .woff
+    AddType font/woff2 .woff2
+</IfModule>
+
+# Cache para assets estaticos
+<FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+    ExpiresActive On
+    ExpiresDefault "access plus 1 month"
+    Header append Cache-Control "public"
+    <IfModule mod_headers.c>
+        <FilesMatch "\.css$">
+            Header set Content-Type "text/css"
+        </FilesMatch>
+        <FilesMatch "\.js$">
+            Header set Content-Type "application/javascript"
+        </FilesMatch>
+    </IfModule>
+</FilesMatch>
+
+# Roteamento para React
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /index.html [L]
+
+# Bloquear arquivos sensiveis
+<FilesMatch "\.(env|log|ini|md|txt)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Compressao
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/json
+</IfModule> 
