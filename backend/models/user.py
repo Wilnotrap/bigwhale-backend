@@ -19,6 +19,7 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean, default=False)
     nautilus_trader_id = db.Column(db.String(120), nullable=True)
     operational_balance = db.Column(db.Float, default=0.0)
+    operational_balance_usd = db.Column(db.Float, default=0.0)  # Saldo operacional em USD
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     commission_rate = db.Column(db.Float, default=0.5)  # Taxa de comissão de 50%
