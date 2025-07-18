@@ -177,6 +177,29 @@ def create_app(config_name='default'):
     def test_route():
         return jsonify({"message": "Backend BigWhale funcionando no Render!", "environment": "Render"}), 200
 
+    # --- Rota de Health Check ---
+    @app.route('/api/health')
+    def health_check():
+        """Endpoint para verificar a saúde da aplicação"""
+        try:
+            # Testar conexão com banco de dados
+            db.session.execute(text('SELECT 1'))
+            
+            return jsonify({
+                'status': 'healthy',
+                'message': 'Aplicação funcionando corretamente',
+                'timestamp': datetime.now().isoformat(),
+                'database': 'connected'
+            }), 200
+            
+        except Exception as e:
+            return jsonify({
+                'status': 'unhealthy',
+                'message': f'Erro na aplicação: {str(e)}',
+                'timestamp': datetime.now().isoformat(),
+                'database': 'disconnected'
+            }), 500
+
     # --- Rota para Inicializar Banco de Dados (redundante, mas pode ser útil para debug) ---
     @app.route('/api/init-database')
     def init_database():
