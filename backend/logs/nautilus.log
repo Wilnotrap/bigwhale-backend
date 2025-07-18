@@ -1,0 +1,70 @@
+2025-07-17 19:47:37,868 INFO: Nautilus startup [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:54]
+2025-07-17 19:47:37,869 INFO: Conectando ao banco de dados SQLite em: C:\Nautilus Aut\RetesteProjeto\backend\instance\site.db [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:84]
+2025-07-17 19:47:37,879 INFO: Tabelas do banco de dados garantidas na inicialização. [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:123]
+2025-07-17 19:47:37,884 ERROR: Erro ao garantir credenciais admin: (sqlite3.OperationalError) no such column: users.nautilus_trader_id
+[SQL: SELECT users.id AS users_id, users.full_name AS users_full_name, users.email AS users_email, users.password_hash AS users_password_hash, users.bitget_api_key_encrypted AS users_bitget_api_key_encrypted, users.bitget_api_secret_encrypted AS users_bitget_api_secret_encrypted, users.bitget_passphrase_encrypted AS users_bitget_passphrase_encrypted, users.is_active AS users_is_active, users.is_admin AS users_is_admin, users.nautilus_trader_id AS users_nautilus_trader_id, users.operational_balance AS users_operational_balance, users.created_at AS users_created_at, users.updated_at AS users_updated_at, users.commission_rate AS users_commission_rate, users.api_configured AS users_api_configured 
+FROM users 
+WHERE users.email = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('admin@bigwhale.com', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/14/e3q8) [in C:\Nautilus Aut\RetesteProjeto\backend\auth\login.py:67]
+2025-07-17 19:47:37,896 INFO: Flask-Session inicializado com sucesso [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:147]
+2025-07-17 19:47:37,904 INFO: Nautilus startup [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:54]
+2025-07-17 19:47:37,904 INFO: Nautilus startup [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:54]
+2025-07-17 19:47:37,904 INFO: Conectando ao banco de dados SQLite em: C:\Nautilus Aut\RetesteProjeto\backend\instance\site.db [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:84]
+2025-07-17 19:47:37,904 INFO: Conectando ao banco de dados SQLite em: C:\Nautilus Aut\RetesteProjeto\backend\instance\site.db [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:84]
+2025-07-17 19:47:37,906 INFO: Tabelas do banco de dados garantidas na inicialização. [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:123]
+2025-07-17 19:47:37,906 INFO: Tabelas do banco de dados garantidas na inicialização. [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:123]
+2025-07-17 19:47:37,908 ERROR: Erro ao garantir credenciais admin: (sqlite3.OperationalError) no such column: users.nautilus_trader_id
+[SQL: SELECT users.id AS users_id, users.full_name AS users_full_name, users.email AS users_email, users.password_hash AS users_password_hash, users.bitget_api_key_encrypted AS users_bitget_api_key_encrypted, users.bitget_api_secret_encrypted AS users_bitget_api_secret_encrypted, users.bitget_passphrase_encrypted AS users_bitget_passphrase_encrypted, users.is_active AS users_is_active, users.is_admin AS users_is_admin, users.nautilus_trader_id AS users_nautilus_trader_id, users.operational_balance AS users_operational_balance, users.created_at AS users_created_at, users.updated_at AS users_updated_at, users.commission_rate AS users_commission_rate, users.api_configured AS users_api_configured 
+FROM users 
+WHERE users.email = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('admin@bigwhale.com', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/14/e3q8) [in C:\Nautilus Aut\RetesteProjeto\backend\auth\login.py:67]
+2025-07-17 19:47:37,908 ERROR: Erro ao garantir credenciais admin: (sqlite3.OperationalError) no such column: users.nautilus_trader_id
+[SQL: SELECT users.id AS users_id, users.full_name AS users_full_name, users.email AS users_email, users.password_hash AS users_password_hash, users.bitget_api_key_encrypted AS users_bitget_api_key_encrypted, users.bitget_api_secret_encrypted AS users_bitget_api_secret_encrypted, users.bitget_passphrase_encrypted AS users_bitget_passphrase_encrypted, users.is_active AS users_is_active, users.is_admin AS users_is_admin, users.nautilus_trader_id AS users_nautilus_trader_id, users.operational_balance AS users_operational_balance, users.created_at AS users_created_at, users.updated_at AS users_updated_at, users.commission_rate AS users_commission_rate, users.api_configured AS users_api_configured 
+FROM users 
+WHERE users.email = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('admin@bigwhale.com', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/14/e3q8) [in C:\Nautilus Aut\RetesteProjeto\backend\auth\login.py:67]
+2025-07-17 19:47:37,912 INFO: Flask-Session inicializado com sucesso [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:147]
+2025-07-17 19:47:37,912 INFO: Flask-Session inicializado com sucesso [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:147]
+2025-07-17 19:47:38,326 INFO: Nautilus startup [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:54]
+2025-07-17 19:47:38,326 INFO: Conectando ao banco de dados SQLite em: C:\Nautilus Aut\RetesteProjeto\backend\instance\site.db [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:84]
+2025-07-17 19:47:38,333 INFO: Tabelas do banco de dados garantidas na inicialização. [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:123]
+2025-07-17 19:47:38,338 ERROR: Erro ao garantir credenciais admin: (sqlite3.OperationalError) no such column: users.nautilus_trader_id
+[SQL: SELECT users.id AS users_id, users.full_name AS users_full_name, users.email AS users_email, users.password_hash AS users_password_hash, users.bitget_api_key_encrypted AS users_bitget_api_key_encrypted, users.bitget_api_secret_encrypted AS users_bitget_api_secret_encrypted, users.bitget_passphrase_encrypted AS users_bitget_passphrase_encrypted, users.is_active AS users_is_active, users.is_admin AS users_is_admin, users.nautilus_trader_id AS users_nautilus_trader_id, users.operational_balance AS users_operational_balance, users.created_at AS users_created_at, users.updated_at AS users_updated_at, users.commission_rate AS users_commission_rate, users.api_configured AS users_api_configured 
+FROM users 
+WHERE users.email = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('admin@bigwhale.com', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/14/e3q8) [in C:\Nautilus Aut\RetesteProjeto\backend\auth\login.py:67]
+2025-07-17 19:47:38,347 INFO: Flask-Session inicializado com sucesso [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:147]
+2025-07-17 19:47:38,354 INFO: Nautilus startup [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:54]
+2025-07-17 19:47:38,354 INFO: Nautilus startup [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:54]
+2025-07-17 19:47:38,355 INFO: Conectando ao banco de dados SQLite em: C:\Nautilus Aut\RetesteProjeto\backend\instance\site.db [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:84]
+2025-07-17 19:47:38,355 INFO: Conectando ao banco de dados SQLite em: C:\Nautilus Aut\RetesteProjeto\backend\instance\site.db [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:84]
+2025-07-17 19:47:38,357 INFO: Tabelas do banco de dados garantidas na inicialização. [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:123]
+2025-07-17 19:47:38,357 INFO: Tabelas do banco de dados garantidas na inicialização. [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:123]
+2025-07-17 19:47:38,358 ERROR: Erro ao garantir credenciais admin: (sqlite3.OperationalError) no such column: users.nautilus_trader_id
+[SQL: SELECT users.id AS users_id, users.full_name AS users_full_name, users.email AS users_email, users.password_hash AS users_password_hash, users.bitget_api_key_encrypted AS users_bitget_api_key_encrypted, users.bitget_api_secret_encrypted AS users_bitget_api_secret_encrypted, users.bitget_passphrase_encrypted AS users_bitget_passphrase_encrypted, users.is_active AS users_is_active, users.is_admin AS users_is_admin, users.nautilus_trader_id AS users_nautilus_trader_id, users.operational_balance AS users_operational_balance, users.created_at AS users_created_at, users.updated_at AS users_updated_at, users.commission_rate AS users_commission_rate, users.api_configured AS users_api_configured 
+FROM users 
+WHERE users.email = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('admin@bigwhale.com', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/14/e3q8) [in C:\Nautilus Aut\RetesteProjeto\backend\auth\login.py:67]
+2025-07-17 19:47:38,358 ERROR: Erro ao garantir credenciais admin: (sqlite3.OperationalError) no such column: users.nautilus_trader_id
+[SQL: SELECT users.id AS users_id, users.full_name AS users_full_name, users.email AS users_email, users.password_hash AS users_password_hash, users.bitget_api_key_encrypted AS users_bitget_api_key_encrypted, users.bitget_api_secret_encrypted AS users_bitget_api_secret_encrypted, users.bitget_passphrase_encrypted AS users_bitget_passphrase_encrypted, users.is_active AS users_is_active, users.is_admin AS users_is_admin, users.nautilus_trader_id AS users_nautilus_trader_id, users.operational_balance AS users_operational_balance, users.created_at AS users_created_at, users.updated_at AS users_updated_at, users.commission_rate AS users_commission_rate, users.api_configured AS users_api_configured 
+FROM users 
+WHERE users.email = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('admin@bigwhale.com', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/14/e3q8) [in C:\Nautilus Aut\RetesteProjeto\backend\auth\login.py:67]
+2025-07-17 19:47:38,362 INFO: Flask-Session inicializado com sucesso [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:147]
+2025-07-17 19:47:38,362 INFO: Flask-Session inicializado com sucesso [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:147]
+2025-07-17 21:25:24,809 INFO: Nautilus startup [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:54]
+2025-07-17 21:25:24,809 INFO: Conectando ao banco de dados SQLite em: C:\Nautilus Aut\RetesteProjeto\backend\instance\site.db [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:84]
+2025-07-17 21:25:24,827 INFO: Tabelas do banco de dados garantidas na inicialização. [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:123]
+2025-07-17 21:25:24,866 INFO: Flask-Session inicializado com sucesso [in C:\Nautilus Aut\RetesteProjeto\backend\app.py:147]
