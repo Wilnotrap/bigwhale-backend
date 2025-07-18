@@ -122,8 +122,7 @@ class User(db.Model):
             'is_admin': self.is_admin,
             'is_active': self.is_active,
             'api_configured': self.api_configured,
-            'nautilus_user_id': self.nautilus_user_id,
-            'nautilus_active': self.nautilus_active,
+            'nautilus_trader_id': self.nautilus_trader_id, # Corrigido aqui
             'operational_balance': self.operational_balance,
             'operational_balance_usd': self.operational_balance_usd,
             'commission_rate': self.commission_rate,
