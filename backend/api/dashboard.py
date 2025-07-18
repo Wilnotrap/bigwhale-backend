@@ -70,7 +70,7 @@ def get_user_stats():
                     
                     # 1. CALCULAR PNL DE POSIÇÕES ABERTAS (NÃO REALIZADO)
                     try:
-                        open_positions_response = bitget_client.get_all_positions_info('umcbl', 'USDT')
+                        open_positions_response = bitget_client.get_all_positions('USDT-FUTURES', 'USDT')
                         if open_positions_response and open_positions_response.get('code') == '00000':
                             open_positions_data = open_positions_response.get('data', [])
                             if isinstance(open_positions_data, list):
