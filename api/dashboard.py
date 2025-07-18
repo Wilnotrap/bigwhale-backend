@@ -10,6 +10,7 @@ from datetime import datetime
 import json
 import logging
 from flask_cors import cross_origin
+import requests
 
 # Configurar logging básico
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -257,9 +258,11 @@ def get_closed_trades():
         logging.error(f"Erro ao obter trades fechados para usuário {session.get('user_id')}: {e}", exc_info=True)
         return jsonify({'message': 'Erro ao carregar trades fechados'}), 500
 
-@dashboard_bp.route('/sync-trades', methods=['POST'])
+@dashboard_bp.route('/sync-trades', methods=['POST', 'OPTIONS'])
 @require_login
 def sync_trades():
+    if request.method == 'OPTIONS':
+        return '', 200
     """Sincroniza trades do usuário com a Bitget - Versão melhorada"""
     try:
         user_id = session.get('user_id')
@@ -1159,9 +1162,11 @@ def stop_auto_sync():
         logging.error(f"Erro ao parar sincronização: {e}")
         return jsonify({"success": False, "message": "Error stopping sync"}), 500
 
-@dashboard_bp.route('/reconnect-api', methods=['POST'])
+@dashboard_bp.route('/reconnect-api', methods=['POST', 'OPTIONS'])
 @cross_origin(supports_credentials=True)
 def reconnect_api():
+    if request.method == 'OPTIONS':
+        return '', 200
     """
     Reconecta a API buscando credenciais criptografadas do banco de dados
     """
@@ -1256,30 +1261,17 @@ def reconnect_api():
             if account_info and account_info.get('code') == '00000':
                 logging.info(f"✅ API do usuário {user_id} reconectada com sucesso.")
                 
-                # Obter credenciais descriptografadas do serviço de segurança
-                secure_service = SecureAPIService() # Instanciar o serviço
-                user_credentials = secure_service.get_user_api_credentials(user_id)
-
-                if user_credentials and not user_credentials.get('error'):
-                    return jsonify({
-                        'success': True,
-                        'message': 'API reconectada com sucesso!',
-                        'data': {
-                            'api_status': 'connected',
-                            'reconnected_at': datetime.now().isoformat(),
-                            'api_key': user_credentials['api_key'],
-                            'api_secret': user_credentials['api_secret'],
-                            'passphrase': user_credentials['passphrase']
-                        }
-                    }), 200
-                else:
-                    logging.error(f"❌ Erro ao obter credenciais descriptografadas após reconexão: {user_credentials.get('error', 'Desconhecido')}")
-                    return jsonify({
-                        'success': False,
-                        'message': 'API reconectada, mas houve um erro ao buscar as credenciais. Por favor, verifique seu perfil.',
-                        'error_type': 'CREDENTIAL_FETCH_ERROR',
-                        'redirect_to_profile': True
-                    }), 500 # Ou um código 200 com status de aviso, dependendo da UX desejada
+                # Retornar sucesso com dados da API
+                return jsonify({
+                    'success': True,
+                    'message': 'API reconectada com sucesso! Dados atualizados.',
+                    'data': {
+                        'api_status': 'connected',
+                        'reconnected_at': datetime.now().isoformat(),
+                        'api_configured': True,
+                        'account_balance': account_info.get('data', {})
+                    }
+                }), 200
 
             else:
                 # Conexão falhou na Bitget
@@ -1308,73 +1300,150 @@ def reconnect_api():
         }), 500
 
 # Novo endpoint para verificar status das credenciais
-@dashboard_bp.route('/credentials/status', methods=['GET'])
+# @dashboard_bp.route('/credentials/status', methods=['GET'])
+# @cross_origin(supports_credentials=True)
+# def check_credentials_status():
+#     """
+#     Verifica o status das credenciais da API do usuário
+#     """
+#     try:
+#         # Verificar se o usuário está logado
+#         if 'user_id' not in session:
+#             return jsonify({
+#                 'success': False,
+#                 'message': 'Usuário não autenticado.',
+#                 'code': 'UNAUTHORIZED'
+#             }), 401
+#         
+#         user_id = session['user_id']
+#         user = User.query.get(user_id)
+#         
+#         if not user:
+#             return jsonify({
+#                 'success': False,
+#                 'message': 'Usuário não encontrado.',
+#                 'code': 'USER_NOT_FOUND'
+#             }), 404
+#         
+#         # Verificar status das credenciais
+#         has_api_key = bool(user.bitget_api_key_encrypted)
+#         has_api_secret = bool(user.bitget_api_secret_encrypted)
+#         has_passphrase = bool(user.bitget_passphrase_encrypted)
+#         
+#         has_all_credentials = has_api_key and has_api_secret and has_passphrase
+#         
+#         status = {
+#             'has_credentials': has_all_credentials,
+#             'has_api_key': has_api_key,
+#             'has_api_secret': has_api_secret,
+#             'has_passphrase': has_passphrase,
+#             'user_email': user.email,
+#             'user_id': user_id,
+#             'checked_at': datetime.utcnow().isoformat()
+#         }
+#         
+#         # Determinar mensagem baseada no status
+#         if has_all_credentials:
+#             message = 'Todas as credenciais da API estão configuradas.'
+#         elif has_api_key or has_api_secret or has_passphrase:
+#             missing = []
+#             if not has_api_key:
+#                 missing.append('API Key')
+#             if not has_api_secret:
+#                 missing.append('API Secret')
+#             if not has_passphrase:
+#                 missing.append('Passphrase')
+#             message = f'Credenciais incompletas. Faltam: {", ".join(missing)}'
+#         else:
+#             message = 'Nenhuma credencial da API configurada.'
+#         
+#         return jsonify({
+#             'success': True,
+#             'message': message,
+#             'status': status
+#         }), 200
+#         
+#     except Exception as e:
+#         logging.error(f"Erro ao verificar status das credenciais: {e}")
+#         return jsonify({
+#             'success': False,
+#             'message': 'Erro interno do servidor.',
+#             'code': 'INTERNAL_ERROR'
+#         }), 500
+
+# Endpoints para integração com Nautilus Automação
+@dashboard_bp.route('/nautilus/login', methods=['POST', 'OPTIONS'])
 @cross_origin(supports_credentials=True)
-def check_credentials_status():
-    """
-    Verifica o status das credenciais da API do usuário
-    """
+def nautilus_login():
+    """Proxy para autenticação no Nautilus"""
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     try:
-        # Verificar se o usuário está logado
-        if 'user_id' not in session:
-            return jsonify({
-                'success': False,
-                'message': 'Usuário não autenticado.',
-                'code': 'UNAUTHORIZED'
-            }), 401
-        
-        user_id = session['user_id']
-        user = User.query.get(user_id)
-        
-        if not user:
-            return jsonify({
-                'success': False,
-                'message': 'Usuário não encontrado.',
-                'code': 'USER_NOT_FOUND'
-            }), 404
-        
-        # Verificar status das credenciais
-        has_api_key = bool(user.bitget_api_key_encrypted)
-        has_api_secret = bool(user.bitget_api_secret_encrypted)
-        has_passphrase = bool(user.bitget_passphrase_encrypted)
-        
-        has_all_credentials = has_api_key and has_api_secret and has_passphrase
-        
-        status = {
-            'has_credentials': has_all_credentials,
-            'has_api_key': has_api_key,
-            'has_api_secret': has_api_secret,
-            'has_passphrase': has_passphrase,
-            'user_email': user.email,
-            'user_id': user_id,
-            'checked_at': datetime.utcnow().isoformat()
+        # Usar credenciais fixas do admin Nautilus
+        login_data = {
+            "email": "admin@bigwhale.com",
+            "password": "bigwhale"
         }
         
-        # Determinar mensagem baseada no status
-        if has_all_credentials:
-            message = 'Todas as credenciais da API estão configuradas.'
-        elif has_api_key or has_api_secret or has_passphrase:
-            missing = []
-            if not has_api_key:
-                missing.append('API Key')
-            if not has_api_secret:
-                missing.append('API Secret')
-            if not has_passphrase:
-                missing.append('Passphrase')
-            message = f'Credenciais incompletas. Faltam: {", ".join(missing)}'
+        response = requests.post(
+            "https://bw.mdsa.com.br/login",
+            json=login_data,
+            headers={
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify({
+                'token': data.get('token'),
+                'userId': data.get('userId')
+            })
         else:
-            message = 'Nenhuma credencial da API configurada.'
-        
-        return jsonify({
-            'success': True,
-            'message': message,
-            'status': status
-        }), 200
-        
+            return jsonify({'error': 'Falha na autenticação'}), response.status_code
+            
     except Exception as e:
-        logging.error(f"Erro ao verificar status das credenciais: {e}")
-        return jsonify({
-            'success': False,
-            'message': 'Erro interno do servidor.',
-            'code': 'INTERNAL_ERROR'
-        }), 500
+        logging.error(f"Erro na autenticação Nautilus: {str(e)}")
+        return jsonify({'error': 'Erro interno na autenticação'}), 500
+
+
+@dashboard_bp.route('/nautilus/active-operations', methods=['GET', 'OPTIONS'])
+@cross_origin(supports_credentials=True)
+def nautilus_active_operations():
+    """Proxy para operações ativas do Nautilus"""
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    try:
+        # Extrair headers de autorização
+        auth_token = request.headers.get('Authorization', '')
+        user_id = request.headers.get('auth-userid', '')
+        
+        if not auth_token or not user_id:
+            return jsonify({'error': 'Headers de autenticação necessários'}), 400
+        
+        response = requests.get(
+            "https://bw.mdsa.com.br/operation/active-operations",
+            headers={
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': auth_token,
+                'auth-userid': user_id,
+                'Origin': 'https://bw-admin.mdsa.com.br',
+                'Referer': 'https://bw-admin.mdsa.com.br/',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return jsonify({'error': 'Erro ao buscar operações'}), response.status_code
+            
+    except Exception as e:
+        logging.error(f"Erro nas operações ativas Nautilus: {str(e)}")
+        return jsonify({'error': 'Erro interno ao buscar operações'}), 500

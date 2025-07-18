@@ -1,44 +1,31 @@
-# backend/models/user.py
-from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy.orm import relationship
 from database import db
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
+from utils.security import aes_encrypt, aes_decrypt
+from sqlalchemy import event
+from sqlalchemy.orm import attributes
 
 class User(db.Model):
     __tablename__ = 'users'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    full_name = db.Column(db.String(150), nullable=False)
-    email = db.Column(db.String(150), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
-    
-    # API keys criptografadas
-    bitget_api_key_encrypted = db.Column(db.Text, nullable=True)
-    bitget_api_secret_encrypted = db.Column(db.Text, nullable=True)
-    bitget_passphrase_encrypted = db.Column(db.Text, nullable=True)
-    
-    # Status e configurações
-    is_active = db.Column(db.Boolean, default=True, nullable=False)
-    is_admin = db.Column(db.Boolean, default=False, nullable=False)
-    
-    # Integração Nautilus
-    nautilus_token = db.Column(db.Text, nullable=True)
-    nautilus_user_id = db.Column(db.Integer, nullable=True)
-    nautilus_active = db.Column(db.Boolean, default=True, nullable=False)
-    
-    # Saldo operacional
-    operational_balance = db.Column(db.Float, default=0.0)
-    operational_balance_usd = db.Column(db.Float, default=0.0)
-    last_conversion_rate = db.Column(db.Float, nullable=True)
-    
-    # Timestamps
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    last_login = db.Column(db.DateTime, nullable=True)
-    
-    # Taxa de comissão personalizada
-    commission_rate = db.Column(db.Float, default=0.35)
 
-    # Relacionamento com trades
-    trades = relationship('Trade', back_populates='user', lazy='dynamic', cascade="all, delete-orphan")
+    id = db.Column(db.Integer, primary_key=True)
+    full_name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    bitget_api_key_encrypted = db.Column(db.String(512), nullable=True)
+    bitget_api_secret_encrypted = db.Column(db.String(512), nullable=True)
+    bitget_passphrase_encrypted = db.Column(db.String(512), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    is_admin = db.Column(db.Boolean, default=False)
+    nautilus_trader_id = db.Column(db.String(120), nullable=True)
+    operational_balance = db.Column(db.Float, default=0.0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    commission_rate = db.Column(db.Float, default=0.5)  # Taxa de comissão de 50%
+    api_configured = db.Column(db.Boolean, default=False, nullable=False)
+
+    # Relacionamento com Trade
+    trades = db.relationship('Trade', back_populates='user', lazy=True)
 
     def set_password(self, password):
         """Criptografa e define a senha do usuário usando Werkzeug."""
@@ -134,6 +121,7 @@ class User(db.Model):
             'email': self.email,
             'is_admin': self.is_admin,
             'is_active': self.is_active,
+            'api_configured': self.api_configured,
             'nautilus_user_id': self.nautilus_user_id,
             'nautilus_active': self.nautilus_active,
             'operational_balance': self.operational_balance,

@@ -124,3 +124,7 @@ def decrypt_api_key(encrypted_key: str) -> str:
 #     # Test with invalid key
 #     print(f"Decrypted (invalid): {decrypt_api_key('invalidb64string')}")
 #     print(f"Decrypted (None): {decrypt_api_key(None)}")
+
+# Aliases para compatibilidade com código existente
+aes_encrypt = encrypt_api_key
+aes_decrypt = decrypt_api_key

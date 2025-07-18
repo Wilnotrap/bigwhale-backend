@@ -46,6 +46,9 @@ class Trade(db.Model):
     bitget_order_id = db.Column(db.String(100), unique=True, nullable=True)
     bitget_position_id = db.Column(db.String(100), nullable=True)
     
+    # Nova coluna para Takes
+    takes_hit = db.Column(db.Integer, default=0, nullable=False)
+    
     # Relacionamento
     user = relationship('User', back_populates='trades')
     
@@ -192,6 +195,7 @@ class Trade(db.Model):
             'margin': self.margin,
             'bitget_order_id': self.bitget_order_id,
             'bitget_position_id': self.bitget_position_id,
+            'takes_hit': self.takes_hit,
         }
 
     def calculate_roe(self):
