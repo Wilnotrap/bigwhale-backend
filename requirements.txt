@@ -11,3 +11,4 @@ cryptography==41.0.7
 PyJWT==2.8.0
 gunicorn==21.2.0
 Flask-Migrate==4.0.5
+psycopg2-binary==2.9.9
