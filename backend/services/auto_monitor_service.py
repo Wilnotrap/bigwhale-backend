@@ -23,6 +23,21 @@ class AutoMonitorService:
         
     def start(self):
         """Inicia o monitoramento automático"""
+        # Verificar se as tabelas existem antes de iniciar
+        try:
+            with self.app.app_context():
+                from sqlalchemy import inspect
+                inspector = inspect(db.engine)
+                tables = inspector.get_table_names()
+                
+                if 'active_signals' not in tables:
+                    self.logger.warning("Tabela active_signals não existe, monitoramento não iniciado")
+                    return
+                    
+        except Exception as check_error:
+            self.logger.error(f"Erro ao verificar tabelas: {check_error}")
+            return
+            
         if not self.running:
             self.running = True
             self.thread = threading.Thread(target=self._monitor_loop, daemon=True)
@@ -53,14 +68,33 @@ class AutoMonitorService:
     def _check_all_signals(self):
         """Verifica todos os sinais ativos de todos os usuários"""
         try:
-            # Buscar todos os sinais ativos com tratamento de erro
+            # Verificar se a tabela active_signals existe antes de tentar acessá-la
             try:
-                active_signals = ActiveSignal.query.filter_by(status='active').all()
+                with self.app.app_context():
+                    from sqlalchemy import inspect
+                    inspector = inspect(db.engine)
+                    tables = inspector.get_table_names()
+                    
+                    if 'active_signals' not in tables:
+                        self.logger.warning("Tabela active_signals não existe, criando...")
+                        db.create_all()
+                        self.logger.info("Tabelas criadas com sucesso")
+                        
+                    # Buscar todos os sinais ativos
+                    active_signals = ActiveSignal.query.filter_by(status='active').all()
+                    
             except Exception as db_error:
                 self.logger.error(f"Erro ao buscar sinais do banco: {db_error}")
-                # Tentar limpar dados corrompidos
-                self._clean_corrupted_data()
-                return
+                # Tentar criar a tabela se não existir
+                try:
+                    with self.app.app_context():
+                        db.create_all()
+                        self.logger.info("Tentativa de criar tabelas ausentes")
+                        # Tentar novamente após criar as tabelas
+                        active_signals = ActiveSignal.query.filter_by(status='active').all()
+                except Exception as create_error:
+                    self.logger.error(f"Erro ao criar tabelas: {create_error}")
+                    return
             
             if not active_signals:
                 return
@@ -118,8 +152,22 @@ class AutoMonitorService:
         try:
             self.logger.info("🧹 Limpando dados corrompidos...")
             
+            # Tentar criar a tabela se não existir
+            try:
+                with self.app.app_context():
+                    db.create_all()
+                    self.logger.info("Tabelas verificadas/criadas durante limpeza")
+            except Exception as create_error:
+                self.logger.error(f"Erro ao criar tabelas durante limpeza: {create_error}")
+                return
+            
             # Buscar todos os sinais
-            all_signals = ActiveSignal.query.all()
+            try:
+                all_signals = ActiveSignal.query.all()
+            except Exception as query_error:
+                self.logger.error(f"Erro ao buscar sinais para limpeza: {query_error}")
+                return
+                
             corrupted_count = 0
             
             for signal in all_signals:

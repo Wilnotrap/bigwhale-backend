@@ -345,14 +345,14 @@ def create_app(config_name='default'):
         try:
             app.logger.info("=== INICIANDO CONFIGURAÇÃO AUTOMÁTICA ===")
             
-            # Executar script de inicialização automática
+            # Executar inicialização simples
             try:
-                import startup_render
-                startup_render.main()
-                app.logger.info("✅ Script de inicialização executado com sucesso!")
-            except Exception as startup_error:
-                app.logger.error(f"Erro no script de inicialização: {startup_error}")
-                # Continuar com o método tradicional se o script falhar
+                import init_render_simples
+                init_render_simples.main()
+                app.logger.info("✅ Inicialização simples executada com sucesso!")
+            except Exception as init_error:
+                app.logger.error(f"Erro na inicialização simples: {init_error}")
+                # Continuar com o método tradicional se a inicialização falhar
             
             # Garantir que o diretório do banco existe
             db_uri = app.config['SQLALCHEMY_DATABASE_URI']
