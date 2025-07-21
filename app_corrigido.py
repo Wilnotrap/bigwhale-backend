@@ -12,6 +12,7 @@ import subprocess
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from datetime import datetime
+import psycopg2
 
 # Configurar logging
 logging.basicConfig(
@@ -201,12 +202,24 @@ def create_app(config_name='default'):
     # --- Rota de Health Check ---
     @app.route('/api/health')
     def health_check():
-        return jsonify({
-            "status": "healthy",
-            "timestamp": datetime.now().isoformat(),
-            "environment": os.environ.get('ENVIRONMENT', 'development'),
-            "message": "Sistema BigWhale funcionando corretamente"
-        }), 200
+        try:
+            from flask_sqlalchemy import SQLAlchemy
+            db = SQLAlchemy(app)
+            db.session.execute('SELECT 1')
+            return jsonify({
+                "status": "healthy",
+                "timestamp": datetime.now().isoformat(),
+                "environment": os.environ.get('ENVIRONMENT', 'development'),
+                "message": "Sistema BigWhale funcionando corretamente"
+            }), 200
+        except Exception as e:
+            app.logger.error(f"Erro no health check: {e}")
+            import traceback
+            app.logger.error(traceback.format_exc())
+            return jsonify({
+                "status": "error",
+                "message": f"Erro no health check: {str(e)}"
+            }), 500
     
     # --- Rota de Login ---
     @app.route('/api/auth/login', methods=['POST', 'OPTIONS'])
