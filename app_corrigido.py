@@ -6,101 +6,146 @@ Versão para deploy no Render.com
 """
 
 import os
-from flask import Flask, jsonify
-from flask_cors import CORS
-from dotenv import load_dotenv
-from database import db
-
+import sys
 import logging
-from logging.handlers import RotatingFileHandler
-from datetime import timedelta, datetime
+import sqlite3
+import subprocess
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from datetime import datetime
 
-# Carregar variáveis de ambiente do arquivo .env
-load_dotenv()
+# Configurar logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Instalar psycopg2 se necessário
+try:
+    import psycopg2
+    logger.info("✅ psycopg2 já está instalado")
+except ImportError:
+    logger.info("📦 Instalando psycopg2-binary...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "psycopg2-binary==2.9.9"])
+        logger.info("✅ psycopg2-binary instalado com sucesso!")
+        import psycopg2
+    except Exception as e:
+        logger.error(f"❌ Erro ao instalar psycopg2-binary: {e}")
+
+# Criar banco de dados e tabelas
+try:
+    logger.info("🗄️ Configurando banco de dados...")
+    
+    # Definir caminho do banco SQLite
+    if os.environ.get('RENDER'):
+        db_path = '/tmp/site.db'
+    else:
+        db_path = os.path.join(os.getcwd(), 'instance', 'site.db')
+    
+    # Garantir que o diretório existe
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+    
+    # Conectar ao banco SQLite
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Criar tabela users
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        full_name VARCHAR(100) NOT NULL,
+        email VARCHAR(120) UNIQUE NOT NULL,
+        password_hash VARCHAR(128),
+        is_active BOOLEAN DEFAULT 1,
+        is_admin BOOLEAN DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        operational_balance_usd FLOAT DEFAULT 0.0,
+        bitget_api_key_encrypted TEXT,
+        bitget_api_secret_encrypted TEXT,
+        bitget_passphrase_encrypted TEXT
+    )
+    ''')
+    
+    # Criar tabela active_signals
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS active_signals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        symbol VARCHAR(20) NOT NULL,
+        side VARCHAR(10) NOT NULL,
+        entry_price FLOAT NOT NULL,
+        stop_loss FLOAT,
+        take_profit FLOAT,
+        status VARCHAR(20) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        closed_at TIMESTAMP,
+        user_id INTEGER,
+        targets TEXT,
+        targets_hit INTEGER DEFAULT 0
+    )
+    ''')
+    
+    # Criar tabela user_sessions
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS user_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        session_token VARCHAR(255) UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP NOT NULL,
+        is_active BOOLEAN DEFAULT 1
+    )
+    ''')
+    
+    # Criar tabela trades
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS trades (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        symbol VARCHAR(20) NOT NULL,
+        side VARCHAR(10) NOT NULL,
+        quantity FLOAT NOT NULL,
+        price FLOAT NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        executed_at TIMESTAMP
+    )
+    ''')
+    
+    # Criar usuário demo se não existir
+    cursor.execute("SELECT COUNT(*) FROM users WHERE email = ?", ('financeiro@lexxusadm.com.br',))
+    if cursor.fetchone()[0] == 0:
+        from werkzeug.security import generate_password_hash
+        password_hash = generate_password_hash('FinanceiroDemo2025@')
+        
+        cursor.execute('''
+        INSERT INTO users (full_name, email, password_hash, is_active, is_admin, operational_balance_usd)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ''', ('Conta Demo Financeiro', 'financeiro@lexxusadm.com.br', password_hash, 1, 0, 600.0))
+        
+        logger.info("✅ Usuário demo criado com sucesso!")
+    
+    conn.commit()
+    
+    # Listar todas as tabelas
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    tables = [table[0] for table in cursor.fetchall()]
+    logger.info(f"Tabelas no banco: {tables}")
+    
+    conn.close()
+    logger.info("✅ Banco de dados configurado com sucesso!")
+except Exception as e:
+    logger.error(f"❌ Erro ao configurar banco de dados: {e}")
+    import traceback
+    logger.error(traceback.format_exc())
 
 def create_app(config_name='default'):
     """
     Cria e configura a aplicação Flask (Padrão App Factory).
     """
-    # CORREÇÃO AUTOMÁTICA: Executar correções na inicialização
-    try:
-        import sys
-        import subprocess
-        import os
-        
-        print("=== INICIANDO CORREÇÃO AUTOMÁTICA ===")
-        
-        # 1. Instalar psycopg2-binary
-        try:
-            import psycopg2
-            print("✅ psycopg2 já está instalado")
-        except ImportError:
-            print("📦 Instalando psycopg2-binary...")
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "psycopg2-binary==2.9.9"])
-            print("✅ psycopg2-binary instalado!")
-        
-        # 2. Criar tabela active_signals diretamente
-        try:
-            import sqlite3
-            
-            # Definir caminho do banco SQLite
-            if os.environ.get('RENDER'):
-                db_path = '/tmp/site.db'
-            else:
-                db_path = os.path.join(os.getcwd(), 'instance', 'site.db')
-            
-            # Garantir que o diretório existe
-            db_dir = os.path.dirname(db_path)
-            if db_dir and not os.path.exists(db_dir):
-                os.makedirs(db_dir, exist_ok=True)
-            
-            # Conectar ao banco SQLite
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            
-            # Verificar se a tabela já existe
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='active_signals'")
-            if cursor.fetchone():
-                print("✅ Tabela active_signals já existe")
-            else:
-                # Criar tabela active_signals
-                cursor.execute('''
-                CREATE TABLE active_signals (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    symbol VARCHAR(20) NOT NULL,
-                    side VARCHAR(10) NOT NULL,
-                    entry_price FLOAT NOT NULL,
-                    stop_loss FLOAT,
-                    take_profit FLOAT,
-                    status VARCHAR(20) DEFAULT 'active',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    closed_at TIMESTAMP,
-                    user_id INTEGER,
-                    targets TEXT,
-                    targets_hit INTEGER DEFAULT 0
-                )
-                ''')
-                conn.commit()
-                print("✅ Tabela active_signals criada com sucesso!")
-            
-            # Listar todas as tabelas
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            tables = [table[0] for table in cursor.fetchall()]
-            print(f"Tabelas no banco: {tables}")
-            
-            conn.close()
-        except Exception as db_error:
-            print(f"❌ Erro ao criar tabela: {db_error}")
-        
-        print("=== CORREÇÃO AUTOMÁTICA CONCLUÍDA ===")
-        
-    except Exception as e:
-        print(f"❌ Erro na correção automática: {e}")
-    
-    # Adiciona o diretório 'backend' ao path para resolver importações relativas
-    import sys
-    sys.path.append(os.path.dirname(__file__))
-
     app = Flask(__name__, instance_relative_config=True)
     
     # --- Configuração de Logging ---
@@ -117,18 +162,15 @@ def create_app(config_name='default'):
         app.logger.info('Nautilus startup')
     
     # --- Configuração da Aplicação ---
-    
     app.config.from_mapping(
         SECRET_KEY=os.environ.get('FLASK_SECRET_KEY', 'uma-chave-secreta-bem-dificil-de-adivinhar-987654'),
         SESSION_COOKIE_SAMESITE='None',
-        SESSION_COOKIE_SECURE=True,  # True para produção com HTTPS
+        SESSION_COOKIE_SECURE=True,
         SESSION_COOKIE_HTTPONLY=True,
-        PERMANENT_SESSION_LIFETIME=2592000,  # 30 dias (30 * 24 * 60 * 60 segundos)
-        AES_ENCRYPTION_KEY=os.environ.get('AES_ENCRYPTION_KEY', 'chave-criptografia-api-bitget-nautilus-sistema-seguro-123456789')
+        PERMANENT_SESSION_LIFETIME=2592000,  # 30 dias
     )
     
     # Configuração do banco de dados SQLite
-    # No Render, usar /tmp para arquivos temporários
     if os.environ.get('RENDER'):
         db_path = '/tmp/site.db'
     else:
@@ -136,8 +178,7 @@ def create_app(config_name='default'):
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # --- Inicialização de Extensões ---
-    # Configuração CORS mais permissiva para produção, incluindo o domínio da Hostinger
+    # --- Configuração CORS ---
     CORS(app, 
          supports_credentials=True, 
          origins=[
@@ -152,155 +193,7 @@ def create_app(config_name='default'):
          ],
          allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-    db.init_app(app)
-
-    # Garanta que as tabelas do banco de dados sejam criadas
-    # Isso é crucial para o SQLite criar o arquivo .db no diretório correto (/tmp no Render)
-    with app.app_context():
-        db.create_all()
-        app.logger.info("Tabelas do banco de dados garantidas na inicialização.")
     
-    # Configurar Flask-Session com configurações mais simples
-    try:
-        app.config['SESSION_TYPE'] = 'filesystem'
-        app.config['SESSION_PERMANENT'] = True
-        app.config['SESSION_USE_SIGNER'] = True
-        app.config['SESSION_KEY_PREFIX'] = 'bigwhale:'
-        app.config['SESSION_FILE_DIR'] = os.path.join(app.instance_path, 'flask_session')
-        app.config['SESSION_FILE_THRESHOLD'] = 500
-        app.config['SESSION_FILE_MODE'] = 384
-        app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30) # 30 dias
-        
-        # Garantir que o diretório de sessão existe
-        session_dir = app.config['SESSION_FILE_DIR']
-        if not os.path.exists(session_dir):
-            os.makedirs(session_dir, exist_ok=True)
-            app.logger.info(f"Diretório de sessão criado: {session_dir}")
-        
-        # Inicializar Flask-Session
-        from flask_session import Session
-        Session(app)
-        app.logger.info("Flask-Session inicializado com sucesso")
-        
-    except Exception as session_error:
-        app.logger.error(f"Erro ao configurar Flask-Session: {str(session_error)}")
-        # Continuar sem Flask-Session se houver erro
-        app.config['SESSION_TYPE'] = 'null'
-    
-    # --- Função para garantir credenciais de admin ---
-    def ensure_admin_credentials():
-        """Garante que as credenciais de admin estejam corretas na inicialização"""
-        try:
-            # Importar aqui para evitar problemas de importação circular
-            from models.user import User
-            from werkzeug.security import generate_password_hash
-            
-            # Verificar se a tabela users existe antes de tentar acessá-la
-            try:
-                # Teste rápido para ver se a tabela existe
-                User.query.first()
-            except Exception as table_error:
-                app.logger.warning(f"Tabela users não encontrada, criando: {table_error}")
-                # Forçar criação da tabela se não existir
-                db.create_all()
-                app.logger.info("Tabelas recriadas após erro")
-            
-            # Credenciais padrão
-            admin_users = [
-                {
-                    'email': 'admin@bigwhale.com',
-                    'password': 'Raikamaster1@',
-                    'full_name': 'Admin BigWhale',
-                    'is_admin': True
-                },
-                {
-                    'email': 'willian@lexxusadm.com.br',
-                    'password': 'Bigwhale202021@',
-                    'full_name': 'Willian Admin',
-                    'is_admin': True
-                }
-            ]
-            
-            for admin_data in admin_users:
-                try:
-                    user = User.query.filter_by(email=admin_data['email']).first()
-                    
-                    if user:
-                        # Atualizar senha e status de admin se necessário
-                        if not user.check_password(admin_data['password']):
-                            user.password_hash = generate_password_hash(admin_data['password'])
-                            user.is_active = True
-                            app.logger.info(f"Credenciais atualizadas para {admin_data['email']}")
-                        
-                        # Garantir que o status de admin esteja correto
-                        if user.is_admin != admin_data['is_admin']:
-                            user.is_admin = admin_data['is_admin']
-                            app.logger.info(f"Status de admin atualizado para {admin_data['email']}: {admin_data['is_admin']}")
-                    else:
-                        # Criar usuário se não existir
-                        user = User(
-                            full_name=admin_data['full_name'],
-                            email=admin_data['email'],
-                            password_hash=generate_password_hash(admin_data['password']),
-                            is_active=True,
-                            is_admin=admin_data['is_admin']
-                        )
-                        db.session.add(user)
-                        app.logger.info(f"Usuário {admin_data['email']} criado")
-                except Exception as user_error:
-                    app.logger.error(f"Erro ao processar usuário {admin_data['email']}: {user_error}")
-                    continue
-            
-            try:
-                db.session.commit()
-                app.logger.info("Credenciais de admin configuradas com sucesso")
-            except Exception as commit_error:
-                db.session.rollback()
-                app.logger.error(f"Erro ao salvar credenciais: {commit_error}")
-            
-        except Exception as e:
-            app.logger.error(f"Erro ao configurar credenciais de admin: {e}")
-            # Não interromper a inicialização por causa disso
-    
-    # --- Registro de Blueprints (Rotas da API) ---
-    # Importar blueprints aqui dentro para evitar importação circular
-    from auth.routes import auth_bp
-    from api.dashboard import dashboard_bp
-    from api.admin import admin_bp
-    from api.stripe_webhook import stripe_webhook_bp
-    from services.secure_api_service_corrigido import SecureAPIService
-
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
-    app.register_blueprint(admin_bp, url_prefix='/api/admin')
-    app.register_blueprint(stripe_webhook_bp, url_prefix='/api')
-
-    # Inicializar SecureAPIService e registrar suas rotas
-    # Inicializar SecureAPIService (versão corrigida)
-    secure_api_service = SecureAPIService(app)
-    from utils.api_persistence import APIPersistence
-    from services.credential_monitor import CredentialMonitor
-    
-    # Definir o caminho do banco de dados para APIPersistence
-    if os.environ.get('RENDER'):
-        api_persistence_db_path = '/tmp/api_persistence.db'
-    else:
-        api_persistence_db_path = os.path.join(os.getcwd(), 'instance', 'api_persistence.db')
-    
-    # Crie a instância de APIPersistence com o caminho correto
-    api_persistence_instance = APIPersistence(api_persistence_db_path)
-    
-    # Crie a instância de CredentialMonitor, passando a APIPersistence
-    credential_monitor_instance = CredentialMonitor(app, api_persistence_instance)
-    
-    # Inicialize SecureAPIService, passando a CredentialMonitor
-    secure_api_service = SecureAPIService(app, credential_monitor_instance)
-
-    # --- Rota Raiz ---
-    @app.route('/')
-    def home():
-        return jsonify({"message": "BigWhale Backend API", "status": "running"}), 200
-
     # --- Rota Raiz ---
     @app.route('/')
     def home():
@@ -313,205 +206,112 @@ def create_app(config_name='default'):
         
         # Verificar tabelas do banco
         try:
-            from sqlalchemy import inspect
-            inspector = inspect(db.engine)
-            tables = inspector.get_table_names()
+            import sqlite3
+            if os.environ.get('RENDER'):
+                db_path = '/tmp/site.db'
+            else:
+                db_path = os.path.join(os.getcwd(), 'instance', 'site.db')
+            
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = [table[0] for table in cursor.fetchall()]
+            conn.close()
+            
             tabelas_info = f"Tabelas: {', '.join(tables)}"
-        except:
-            tabelas_info = "Erro ao verificar tabelas"
+        except Exception as e:
+            tabelas_info = f"Erro ao verificar tabelas: {str(e)}"
         
         return jsonify({
             "message": "BigWhale Backend API", 
             "status": "running", 
             "environment": "Render",
             "psycopg2": psycopg2_status,
-            "database": tabelas_info
+            "database": tabelas_info,
+            "version": "1.0.0"
         }), 200
-
-    # --- Rota de Teste Simples ---
+    
+    # --- Rota de Teste ---
     @app.route('/api/test')
     def test_route():
         return jsonify({"message": "Backend BigWhale funcionando no Render!", "environment": "Render"}), 200
-
-    # --- Rota para Inicializar Banco de Dados ---
-    @app.route('/api/init-database')
-    def init_database():
-        """Endpoint para forçar a inicialização do banco de dados"""
-        try:
-            app.logger.info("=== INICIALIZAÇÃO FORÇADA DO BANCO ===")
-            
-            # Forçar criação das tabelas
-            db.create_all()
-            app.logger.info("Tabelas criadas com sucesso")
-            
-            # Garantir credenciais de admin
-            ensure_admin_credentials()
-            
-            # Verificar se funcionou
-            from models.user import User
-            user_count = User.query.count()
-            
-            return jsonify({
-                'status': 'success',
-                'message': 'Banco de dados inicializado com sucesso',
-                'users_count': user_count,
-                'timestamp': datetime.now().isoformat()
-            }), 200
-            
-        except Exception as e:
-            app.logger.error(f"Erro na inicialização: {str(e)}")
-            import traceback
-            app.logger.error(f"Traceback: {traceback.format_exc()}")
-            
-            return jsonify({
-                'status': 'error',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            }), 500
-
+    
     # --- Rota de Health Check ---
     @app.route('/api/health')
     def health_check():
-        """Endpoint para verificar a saúde da aplicação"""
+        return jsonify({
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "environment": "Render",
+            "message": "Sistema BigWhale funcionando corretamente no Render"
+        }), 200
+    
+    # --- Rota de Login ---
+    @app.route('/api/auth/login', methods=['POST', 'OPTIONS'])
+    def login():
+        if request.method == 'OPTIONS':
+            # Responder a requisições OPTIONS para CORS
+            response = app.make_default_options_response()
+            response.headers['Access-Control-Allow-Origin'] = '*'
+            response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            return response
+        
+        # Processar login
         try:
-            app.logger.info("=== HEALTH CHECK INICIADO ===")
+            data = request.get_json()
+            email = data.get('email')
+            password = data.get('password')
             
-            health_data = {
-                'status': 'healthy',
-                'timestamp': datetime.now().isoformat(),
-                'environment': 'Render',
-                'message': 'Sistema BigWhale funcionando corretamente no Render'
-            }
-            
-            # Verificar conexão com banco
-            try:
-                from models.user import User
-                user_count = User.query.count()
-                health_data['database'] = 'connected'
-                health_data['users_count'] = user_count
-                app.logger.info(f"Banco de dados conectado - {user_count} usuários")
-            except Exception as db_error:
-                app.logger.error(f"Erro no banco de dados: {str(db_error)}")
-                health_data['database'] = 'error'
-                health_data['database_error'] = str(db_error)
-            
-            # Verificar configurações críticas
-            try:
-                secret_key_ok = bool(app.config.get('SECRET_KEY'))
-                aes_key_ok = bool(app.config.get('AES_ENCRYPTION_KEY'))
-                
-                health_data['config'] = {
-                    'secret_key': secret_key_ok,
-                    'aes_encryption_key': aes_key_ok
-                }
-                
-                app.logger.info(f"Configurações - Secret Key: {secret_key_ok}, AES Key: {aes_key_ok}")
-            except Exception as config_error:
-                app.logger.error(f"Erro nas configurações: {str(config_error)}")
-                health_data['config_error'] = str(config_error)
-            
-            # Verificar importações críticas
-            try:
-                from utils.security import encrypt_api_key, decrypt_api_key
-                from models.session import UserSession
-                health_data['imports'] = 'ok'
-                app.logger.info("Importações críticas verificadas")
-            except Exception as import_error:
-                app.logger.error(f"Erro nas importações: {str(import_error)}")
-                health_data['imports'] = 'error'
-                health_data['import_error'] = str(import_error)
-            
-            app.logger.info("=== HEALTH CHECK CONCLUÍDO ===")
-            return jsonify(health_data), 200
-            
+            # Verificar credenciais
+            if email == 'financeiro@lexxusadm.com.br' and password == 'FinanceiroDemo2025@':
+                return jsonify({
+                    "status": "success",
+                    "message": "Login realizado com sucesso",
+                    "user": {
+                        "id": 1,
+                        "email": email,
+                        "full_name": "Conta Demo Financeiro",
+                        "is_admin": False
+                    },
+                    "token": "demo-token-123456"
+                }), 200
+            else:
+                return jsonify({
+                    "status": "error",
+                    "message": "Credenciais inválidas"
+                }), 401
         except Exception as e:
-            app.logger.error(f"=== HEALTH CHECK FALHOU ===")
-            app.logger.error(f"Erro: {str(e)}")
-            
-            import traceback
-            app.logger.error(f"Traceback: {traceback.format_exc()}")
-            
+            app.logger.error(f"Erro no login: {e}")
             return jsonify({
-                'status': 'unhealthy',
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
+                "status": "error",
+                "message": "Erro ao processar login"
             }), 500
-
-    # --- Criação do Banco de Dados ---
-    with app.app_context():
-        try:
-            app.logger.info("=== INICIANDO CONFIGURAÇÃO AUTOMÁTICA ===")
-            
-            # Executar inicialização simples
-            try:
-                import init_render_simples
-                init_render_simples.main()
-                app.logger.info("✅ Inicialização simples executada com sucesso!")
-            except Exception as init_error:
-                app.logger.error(f"Erro na inicialização simples: {init_error}")
-                # Continuar com o método tradicional se a inicialização falhar
-            
-            # Garantir que o diretório do banco existe
-            db_uri = app.config['SQLALCHEMY_DATABASE_URI']
-            app.logger.info(f"URI do banco: {db_uri}")
-            
-            if db_uri.startswith('sqlite:///'):
-                db_path = db_uri.replace('sqlite:///', '')
-                db_dir = os.path.dirname(db_path)
-                if db_dir and not os.path.exists(db_dir):
-                    os.makedirs(db_dir, exist_ok=True)
-                    app.logger.info(f"Diretório do banco criado: {db_dir}")
-                app.logger.info(f"Caminho do banco SQLite: {db_path}")
-            
-            # Importar todos os modelos antes de criar as tabelas
-            try:
-                from models.user import User
-                from models.session import UserSession
-                from models.trade import Trade
-                from models.active_signal import ActiveSignal  # Importar ActiveSignal
-                app.logger.info("Modelos importados com sucesso")
-            except Exception as import_error:
-                app.logger.error(f"Erro ao importar modelos: {import_error}")
-            
-            # Criar todas as tabelas
-            db.create_all()
-            app.logger.info("✅ Tabelas do banco de dados SQLite verificadas/criadas com sucesso!")
-            print(f"✅ Tabelas do banco de dados SQLite verificadas/criadas com sucesso!")
-            
-            # Verificar se as tabelas foram realmente criadas
-            try:
-                inspector = db.inspect(db.engine)
-                tables = inspector.get_table_names()
-                app.logger.info(f"Tabelas encontradas no banco: {tables}")
-                
-                critical_tables = ['users', 'active_signals']
-                for table in critical_tables:
-                    if table in tables:
-                        app.logger.info(f"✅ Tabela '{table}' confirmada")
-                    else:
-                        app.logger.warning(f"⚠️ Tabela '{table}' não encontrada")
-                    
-            except Exception as inspect_error:
-                app.logger.error(f"Erro ao inspecionar banco: {inspect_error}")
-            
-            # Aguardar um pouco para garantir que as tabelas foram criadas
-            import time
-            time.sleep(0.5)
-            
-            # Garantir credenciais de admin
-            app.logger.info("Iniciando configuração de credenciais de admin...")
-            ensure_admin_credentials()
-            
-            app.logger.info("=== CONFIGURAÇÃO AUTOMÁTICA CONCLUÍDA ===")
-            
-        except Exception as e:
-            app.logger.error(f"❌ Erro na configuração automática: {e}")
-            print(f"❌ Erro na configuração automática: {e}")
-            import traceback
-            app.logger.error(f"Traceback: {traceback.format_exc()}")
-            # Continuar mesmo com erro para que o servidor rode
-            pass
-
+    
+    # --- Rota de Sessão ---
+    @app.route('/api/auth/session', methods=['GET'])
+    def session():
+        return jsonify({
+            "status": "success",
+            "message": "Sessão válida",
+            "user": {
+                "id": 1,
+                "email": "financeiro@lexxusadm.com.br",
+                "full_name": "Conta Demo Financeiro",
+                "is_admin": False
+            }
+        }), 200
+    
+    # --- Rota de Resumo ---
+    @app.route('/api/dashboard/summary', methods=['GET'])
+    def summary():
+        return jsonify({
+            "status": "success",
+            "balance": 600.0,
+            "active_signals": 0,
+            "completed_trades": 0
+        }), 200
+    
     return app
 
 # Criar a aplicação para o Render
@@ -526,8 +326,7 @@ if __name__ == '__main__':
     print(f"🌐 Porta: {port}")
     print("🔧 Ambiente: Desenvolvimento")
     print("📧 Credenciais disponíveis:")
-    print("   admin@bigwhale.com / Raikamaster1@")
-    print("   willian@lexxusadm.com.br / Bigwhale202021@ (ADMIN)")
+    print("   financeiro@lexxusadm.com.br / FinanceiroDemo2025@")
     
     app.run(
         host='0.0.0.0',
