@@ -22,6 +22,81 @@ def create_app(config_name='default'):
     """
     Cria e configura a aplicação Flask (Padrão App Factory).
     """
+    # CORREÇÃO AUTOMÁTICA: Executar correções na inicialização
+    try:
+        import sys
+        import subprocess
+        import os
+        
+        print("=== INICIANDO CORREÇÃO AUTOMÁTICA ===")
+        
+        # 1. Instalar psycopg2-binary
+        try:
+            import psycopg2
+            print("✅ psycopg2 já está instalado")
+        except ImportError:
+            print("📦 Instalando psycopg2-binary...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "psycopg2-binary==2.9.9"])
+            print("✅ psycopg2-binary instalado!")
+        
+        # 2. Criar tabela active_signals diretamente
+        try:
+            import sqlite3
+            
+            # Definir caminho do banco SQLite
+            if os.environ.get('RENDER'):
+                db_path = '/tmp/site.db'
+            else:
+                db_path = os.path.join(os.getcwd(), 'instance', 'site.db')
+            
+            # Garantir que o diretório existe
+            db_dir = os.path.dirname(db_path)
+            if db_dir and not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+            
+            # Conectar ao banco SQLite
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            
+            # Verificar se a tabela já existe
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='active_signals'")
+            if cursor.fetchone():
+                print("✅ Tabela active_signals já existe")
+            else:
+                # Criar tabela active_signals
+                cursor.execute('''
+                CREATE TABLE active_signals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    symbol VARCHAR(20) NOT NULL,
+                    side VARCHAR(10) NOT NULL,
+                    entry_price FLOAT NOT NULL,
+                    stop_loss FLOAT,
+                    take_profit FLOAT,
+                    status VARCHAR(20) DEFAULT 'active',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    closed_at TIMESTAMP,
+                    user_id INTEGER,
+                    targets TEXT,
+                    targets_hit INTEGER DEFAULT 0
+                )
+                ''')
+                conn.commit()
+                print("✅ Tabela active_signals criada com sucesso!")
+            
+            # Listar todas as tabelas
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = [table[0] for table in cursor.fetchall()]
+            print(f"Tabelas no banco: {tables}")
+            
+            conn.close()
+        except Exception as db_error:
+            print(f"❌ Erro ao criar tabela: {db_error}")
+        
+        print("=== CORREÇÃO AUTOMÁTICA CONCLUÍDA ===")
+        
+    except Exception as e:
+        print(f"❌ Erro na correção automática: {e}")
+    
     # Adiciona o diretório 'backend' ao path para resolver importações relativas
     import sys
     sys.path.append(os.path.dirname(__file__))
@@ -229,7 +304,29 @@ def create_app(config_name='default'):
     # --- Rota Raiz ---
     @app.route('/')
     def home():
-        return jsonify({"message": "BigWhale Backend API", "status": "running", "environment": "Render"}), 200
+        # Verificar se psycopg2 está instalado
+        try:
+            import psycopg2
+            psycopg2_status = "instalado"
+        except ImportError:
+            psycopg2_status = "não instalado"
+        
+        # Verificar tabelas do banco
+        try:
+            from sqlalchemy import inspect
+            inspector = inspect(db.engine)
+            tables = inspector.get_table_names()
+            tabelas_info = f"Tabelas: {', '.join(tables)}"
+        except:
+            tabelas_info = "Erro ao verificar tabelas"
+        
+        return jsonify({
+            "message": "BigWhale Backend API", 
+            "status": "running", 
+            "environment": "Render",
+            "psycopg2": psycopg2_status,
+            "database": tabelas_info
+        }), 200
 
     # --- Rota de Teste Simples ---
     @app.route('/api/test')
