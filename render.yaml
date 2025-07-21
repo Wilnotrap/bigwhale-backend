@@ -2,11 +2,10 @@ services:
   - type: web
     name: bigwhale-backend
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python init_db.py && gunicorn app:create_app()
+    buildCommand: pip install -r requirements.txt && pip install psycopg2-binary==2.9.9
+    startCommand: python app_simples.py
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.9
-      - key: SECRET_KEY
-        generateValue: true
-    healthCheckPath: /api/health
+        value: 3.9.0
+      - key: RENDER
+        value: true
