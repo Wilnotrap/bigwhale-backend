@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: bigwhale-backend
+    env: python
+    buildCommand: chmod +x ./deployrender/build.sh && ./deployrender/build.sh
+    startCommand: gunicorn app_corrigido:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.16
+      - key: RENDER
+        value: true
