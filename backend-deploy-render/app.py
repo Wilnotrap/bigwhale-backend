@@ -47,33 +47,57 @@ def create_app():
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
         
-        # Configurações SSL específicas para PostgreSQL no Render
+        # Configurações SSL robustas para PostgreSQL no Render
         if 'sslmode' not in database_url:
             separator = '&' if '?' in database_url else '?'
-            database_url += f'{separator}sslmode=require&sslcert=&sslkey=&sslrootcert='
+            database_url += f'{separator}sslmode=require'
         
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
         logger.info(f'Usando PostgreSQL (Render): {database_url[:50]}...')
+        
+        # Configurações específicas do engine para Render PostgreSQL
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,
+            'pool_recycle': 300,
+            'pool_timeout': 20,
+            'pool_size': 5,
+            'max_overflow': 10,
+            'connect_args': {
+                'sslmode': 'require',
+                'connect_timeout': 10,
+                'application_name': 'BigWhale_Backend'
+            }
+        }
     else:
         # SQLite para desenvolvimento local
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///bigwhale.db'
         logger.info('Usando SQLite (desenvolvimento)')
+        
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+            'pool_pre_ping': True,
+            'pool_recycle': 300
+        }
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'pool_pre_ping': True,
-        'pool_recycle': 300,
-        'connect_args': {
-            'sslmode': 'require',
-            'sslcert': None,
-            'sslkey': None,
-            'sslrootcert': None
-        } if database_url else {}
-    }
     
-    # Inicializar SQLAlchemy
+    # Inicializar SQLAlchemy com tratamento de erro
     from flask_sqlalchemy import SQLAlchemy
-    db = SQLAlchemy(app)
+    
+    try:
+        db = SQLAlchemy(app)
+        logger.info('SQLAlchemy inicializado com sucesso')
+    except Exception as e:
+        logger.error(f'Erro ao inicializar SQLAlchemy: {str(e)}')
+        # Fallback para configuração SSL mais permissiva
+        if database_url and 'sslmode=require' in database_url:
+            logger.info('Tentando fallback SSL...')
+            database_url_fallback = database_url.replace('sslmode=require', 'sslmode=prefer')
+            app.config['SQLALCHEMY_DATABASE_URI'] = database_url_fallback
+            app.config['SQLALCHEMY_ENGINE_OPTIONS']['connect_args']['sslmode'] = 'prefer'
+            db = SQLAlchemy(app)
+            logger.info('Fallback SSL aplicado com sucesso')
+        else:
+            raise e
     
     # Modelo de usuário simples
     class User(db.Model):
