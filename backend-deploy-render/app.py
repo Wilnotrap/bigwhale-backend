@@ -60,18 +60,13 @@ def create_app():
         logger.info(f'DATABASE_URI final configurada: {database_url[:80]}...')
         logger.info(f'SSL presente na URL: {"sslmode" in database_url}')
         
-        # Configurações específicas do engine para Render PostgreSQL
+        # Configurações específicas do engine para Render PostgreSQL (sem connect_args)
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
             'pool_recycle': 300,
             'pool_timeout': 20,
             'pool_size': 5,
-            'max_overflow': 10,
-            'connect_args': {
-                'sslmode': 'require',
-                'connect_timeout': 10,
-                'application_name': 'BigWhale_Backend'
-            }
+            'max_overflow': 10
         }
     else:
         # SQLite para desenvolvimento local
@@ -110,7 +105,6 @@ def create_app():
             logger.info('Tentando fallback SSL para sslmode=prefer...')
             database_url_fallback = database_url.replace('sslmode=require', 'sslmode=prefer')
             app.config['SQLALCHEMY_DATABASE_URI'] = database_url_fallback
-            app.config['SQLALCHEMY_ENGINE_OPTIONS']['connect_args']['sslmode'] = 'prefer'
             logger.info(f'DATABASE_URI fallback: {database_url_fallback[:80]}...')
             
             try:
