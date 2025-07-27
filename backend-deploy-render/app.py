@@ -44,6 +44,7 @@ def create_app():
     # Configurar banco de dados (PostgreSQL no Render, SQLite local)
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
+        logger.info(f'🔴 DEBUG: DATABASE_URL completa recebida do ambiente: {database_url}')
         logger.info(f'🔍 DATABASE_URL original: {database_url[:50]}...')
         
         # PostgreSQL no Render - corrigir URL se necessário
@@ -51,34 +52,19 @@ def create_app():
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
             logger.info('✅ URL corrigida de postgres:// para postgresql://')
         
-        # Solução robusta para SSL com urllib.parse
-        from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+        # Solução Simplificada para SSL
+        if "?" in database_url:
+            final_url = f"{database_url}&sslmode=require"
+        else:
+            final_url = f"{database_url}?sslmode=require"
         
-        parsed_url = urlparse(database_url)
-        query_params = parse_qs(parsed_url.query)
-        query_params['sslmode'] = ['require'] # Garante que sslmode=require
-        
-        # Remove outros parâmetros SSL conflitantes que possam existir
-        for key in ['sslrootcert', 'sslcert', 'sslkey']:
-            query_params.pop(key, None)
-
-        new_query = urlencode(query_params, doseq=True)
-        
-        # Recria a URL com o sslmode correto
-        final_url = urlunparse(parsed_url._replace(query=new_query))
         app.config['SQLALCHEMY_DATABASE_URI'] = final_url
-        logger.info('🔒 SSL configurado de forma robusta para `require`')
-        logger.info(f'📊 DATABASE_URI final: {database_url[:80]}...')
+        logger.info('🔒 SSL configurado com `sslmode=require` (abordagem simplificada)')
+        logger.info(f'📊 DATABASE_URI final: {final_url[:80]}...')
         
-        # Configurações específicas do engine para Render PostgreSQL
-        # Baseado na solução do fórum: pool_pre_ping=True e pool_recycle=300
-        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-            'pool_pre_ping': True,
-            'pool_recycle': 300,
-            'pool_timeout': 20,
-            'pool_size': 5,
-            'max_overflow': 10
-        }
+        # Removendo configurações de engine para teste
+        app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {}
+        logger.warning('⚠️ Configurações de engine do SQLAlchemy foram removidas para depuração.')
     else:
         # SQLite para desenvolvimento local
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///bigwhale.db'
