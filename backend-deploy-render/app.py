@@ -43,24 +43,25 @@ def create_app():
     # Configurar banco de dados (PostgreSQL no Render, SQLite local)
     database_url = os.environ.get('DATABASE_URL')
     if database_url:
-        logger.info(f'DATABASE_URL original: {database_url[:50]}...')
+        logger.info(f'🔍 DATABASE_URL original: {database_url[:50]}...')
         
         # PostgreSQL no Render - corrigir URL se necessário
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
-            logger.info('URL corrigida de postgres:// para postgresql://')
+            logger.info('✅ URL corrigida de postgres:// para postgresql://')
         
-        # Configurações SSL robustas para PostgreSQL no Render
-        if 'sslmode' not in database_url:
+        # Configurar SSL para PostgreSQL no Render - Solução baseada no fórum do Render
+        # Adicionar sslmode=require se não estiver presente
+        if 'sslmode=' not in database_url:
             separator = '&' if '?' in database_url else '?'
             database_url += f'{separator}sslmode=require'
-            logger.info(f'SSL adicionado à URL: sslmode=require')
+            logger.info(f'🔒 SSL adicionado: sslmode=require')
         
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-        logger.info(f'DATABASE_URI final configurada: {database_url[:80]}...')
-        logger.info(f'SSL presente na URL: {"sslmode" in database_url}')
+        logger.info(f'📊 DATABASE_URI final: {database_url[:80]}...')
         
-        # Configurações específicas do engine para Render PostgreSQL (sem connect_args)
+        # Configurações específicas do engine para Render PostgreSQL
+        # Baseado na solução do fórum: pool_pre_ping=True e pool_recycle=300
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
             'pool_recycle': 300,
@@ -83,38 +84,45 @@ def create_app():
     # Inicializar SQLAlchemy com tratamento de erro
     from flask_sqlalchemy import SQLAlchemy
     
-    logger.info('Iniciando configuração do SQLAlchemy...')
-    logger.info(f'SQLALCHEMY_ENGINE_OPTIONS: {app.config.get("SQLALCHEMY_ENGINE_OPTIONS", {})}')
+    logger.info('🚀 Iniciando configuração do SQLAlchemy...')
+    logger.info(f'⚙️ SQLALCHEMY_DATABASE_URI: {app.config.get("SQLALCHEMY_DATABASE_URI", "")[:100]}...')
+    logger.info(f'⚙️ SQLALCHEMY_ENGINE_OPTIONS: {app.config.get("SQLALCHEMY_ENGINE_OPTIONS", {})}')
     
     try:
         db = SQLAlchemy(app)
-        logger.info('SQLAlchemy inicializado com sucesso')
+        logger.info('✅ SQLAlchemy inicializado com sucesso')
         
         # Testar conexão imediatamente
         with app.app_context():
             from sqlalchemy import text
-            db.session.execute(text('SELECT 1'))
-            logger.info('Teste de conexão com banco realizado com sucesso')
+            result = db.session.execute(text('SELECT version()'))
+            version_info = result.fetchone()[0] if result.rowcount > 0 else 'N/A'
+            logger.info(f'✅ Teste de conexão realizado com sucesso')
+            logger.info(f'📊 Versão do PostgreSQL: {version_info[:100]}...')
             
     except Exception as e:
         logger.error(f'Erro ao inicializar SQLAlchemy: {str(e)}')
         logger.error(f'Tipo do erro: {type(e).__name__}')
         
-        # Fallback para configuração SSL mais permissiva
+        # Fallback simples: tentar sem SSL se falhar
         if database_url and 'sslmode=require' in database_url:
-            logger.info('Tentando fallback SSL para sslmode=prefer...')
+            logger.info('🔄 Tentando fallback SSL para sslmode=prefer...')
+            
+            # Fallback: sslmode=prefer
             database_url_fallback = database_url.replace('sslmode=require', 'sslmode=prefer')
             app.config['SQLALCHEMY_DATABASE_URI'] = database_url_fallback
-            logger.info(f'DATABASE_URI fallback: {database_url_fallback[:80]}...')
+            logger.info(f'📊 DATABASE_URI fallback: {database_url_fallback[:80]}...')
             
             try:
                 db = SQLAlchemy(app)
                 with app.app_context():
                     from sqlalchemy import text
-                    db.session.execute(text('SELECT 1'))
-                logger.info('Fallback SSL aplicado com sucesso')
+                    result = db.session.execute(text('SELECT version()'))
+                    version_info = result.fetchone()[0] if result.rowcount > 0 else 'N/A'
+                    logger.info(f'✅ Fallback SSL aplicado com sucesso')
+                    logger.info(f'📊 Versão do PostgreSQL: {version_info[:100]}...')
             except Exception as fallback_error:
-                logger.error(f'Erro no fallback SSL: {str(fallback_error)}')
+                logger.error(f'❌ Erro no fallback: {str(fallback_error)}')
                 raise fallback_error
         else:
             raise e
