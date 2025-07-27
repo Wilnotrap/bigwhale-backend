@@ -10,7 +10,6 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
 from database import db
-from flask_migrate import Migrate
 
 import logging
 from logging.handlers import RotatingFileHandler
@@ -22,7 +21,6 @@ from api.dashboard import dashboard_bp
 from api.admin import admin_bp
 from api.stripe_webhook import stripe_webhook_bp
 from api import api_credentials_bp
-from services.secure_api_service_corrigido import SecureAPIService # Adicionar esta linha
 from middleware.auth_middleware import AuthMiddleware
 from auth.login import ensure_admin_credentials
 from models.invite_code import initialize_invite_codes # Importar a função de inicialização de convites
@@ -64,29 +62,17 @@ def create_app(config_name='default'):
         AES_ENCRYPTION_KEY=os.environ.get('AES_ENCRYPTION_KEY', 'chave-criptografia-api-bitget-nautilus-sistema-seguro-123456789')
     )
     
-    # --- Configuração do Banco de Dados Flexível (PostgreSQL ou SQLite) ---
-    database_url = os.environ.get('DATABASE_URL')
-
-    if database_url and database_url.startswith('postgres'):
-        # Em produção (Render), usar a DATABASE_URL (PostgreSQL)
-        # A URL do Render pode vir como 'postgres://' e o SQLAlchemy espera 'postgresql://'
-        app.config['SQLALCHEMY_DATABASE_URI'] = database_url.replace('postgres://', 'postgresql://', 1)
-        app.logger.info("Conectando ao banco de dados PostgreSQL no Render.")
+    # Configuração do banco de dados SQLite
+    # No Render, usar /tmp para arquivos temporários
+    if os.environ.get('RENDER'):
+        db_path = '/tmp/site.db'
     else:
-        # Em desenvolvimento local, usar SQLite
-        instance_path = app.instance_path
-        if not os.path.exists(instance_path):
-            os.makedirs(instance_path)
-            app.logger.info(f"Diretório de instância criado em: {instance_path}")
-
-        db_path = os.path.join(instance_path, 'site.db')
-        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-        app.logger.info(f"Conectando ao banco de dados SQLite em: {db_path}")
-
+        db_path = os.path.join(os.getcwd(), 'instance', 'site.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or f'sqlite:///{db_path}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     # --- Inicialização de Extensões ---
-    # Configuração CORS robusta para produção
+    # Configuração CORS mais permissiva para produção, incluindo o domínio da Hostinger
     CORS(app, 
          supports_credentials=True, 
          origins=[
@@ -99,23 +85,9 @@ def create_app(config_name='default'):
              "https://bwhale.site",
              "http://bwhale.site"
          ],
-         allow_headers=[
-             "Content-Type", 
-             "Authorization", 
-             "Access-Control-Allow-Credentials",
-             "Access-Control-Allow-Origin",
-             "X-Requested-With",
-             "Accept"
-         ],
-         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-         expose_headers=["Access-Control-Allow-Origin", "Access-Control-Allow-Credentials"])
+         allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
     db.init_app(app)
-
-    # Inicializar o Flask-Migrate
-    migrate = Migrate(app, db)
-
-    # Inicializar o serviço de API segura
-    secure_api_service = SecureAPIService(app)
 
     # Garanta que as tabelas do banco de dados sejam criadas e dados iniciais configurados
     with app.app_context():
@@ -161,17 +133,6 @@ def create_app(config_name='default'):
     # Middleware de autenticação
     AuthMiddleware(app)
 
-    # --- Handler global para OPTIONS (preflight requests) ---
-    @app.before_request
-    def handle_preflight():
-        if request.method == "OPTIONS":
-            response = jsonify()
-            response.headers.add("Access-Control-Allow-Origin", request.headers.get('Origin', '*'))
-            response.headers.add('Access-Control-Allow-Headers', "Content-Type,Authorization,Access-Control-Allow-Credentials,X-Requested-With,Accept")
-            response.headers.add('Access-Control-Allow-Methods', "GET,PUT,POST,DELETE,OPTIONS")
-            response.headers.add('Access-Control-Allow-Credentials', 'true')
-            return response
-
     # --- Rota de Teste Simples ---
     @app.route('/api/test')
     def test_route():
@@ -202,6 +163,45 @@ def create_app(config_name='default'):
         except Exception as e:
             app.logger.error(f"Erro ao inicializar banco de dados: {e}")
             return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    # --- Rota de Health Check ---
+    @app.route('/api/health')
+    def health_check():
+        """Endpoint para verificar a saúde da aplicação"""
+        try:
+            app.logger.info("=== HEALTH CHECK INICIADO ===")
+            
+            health_data = {
+                'status': 'healthy',
+                'timestamp': datetime.now().isoformat(),
+                'environment': 'Render',
+                'message': 'Sistema BigWhale funcionando corretamente no Render'
+            }
+            
+            # Verificar conexão com banco
+            try:
+                from models.user import User
+                user_count = User.query.count()
+                health_data['database'] = 'connected'
+                health_data['users_count'] = user_count
+                app.logger.info(f"Banco de dados conectado - {user_count} usuários")
+            except Exception as db_error:
+                app.logger.error(f"Erro no banco de dados: {str(db_error)}")
+                health_data['database'] = 'error'
+                health_data['database_error'] = str(db_error)
+            
+            app.logger.info("=== HEALTH CHECK CONCLUÍDO ===")
+            return jsonify(health_data), 200
+            
+        except Exception as e:
+            app.logger.error(f"=== HEALTH CHECK FALHOU ===")
+            app.logger.error(f"Erro: {str(e)}")
+            
+            return jsonify({
+                'status': 'unhealthy',
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }), 500
 
     return app
 
