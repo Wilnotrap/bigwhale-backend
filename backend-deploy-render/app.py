@@ -7,6 +7,7 @@ Versão corrigida e simplificada
 
 import os
 import sys
+import traceback
 from flask import Flask, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -50,14 +51,23 @@ def create_app():
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
             logger.info('✅ URL corrigida de postgres:// para postgresql://')
         
-        # Configurar SSL para PostgreSQL no Render - Solução baseada no fórum do Render
-        # Adicionar sslmode=require se não estiver presente
-        if 'sslmode=' not in database_url:
-            separator = '&' if '?' in database_url else '?'
-            database_url += f'{separator}sslmode=require'
-            logger.info(f'🔒 SSL adicionado: sslmode=require')
+        # Solução robusta para SSL com urllib.parse
+        from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
         
-        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+        parsed_url = urlparse(database_url)
+        query_params = parse_qs(parsed_url.query)
+        query_params['sslmode'] = ['require'] # Garante que sslmode=require
+        
+        # Remove outros parâmetros SSL conflitantes que possam existir
+        for key in ['sslrootcert', 'sslcert', 'sslkey']:
+            query_params.pop(key, None)
+
+        new_query = urlencode(query_params, doseq=True)
+        
+        # Recria a URL com o sslmode correto
+        final_url = urlunparse(parsed_url._replace(query=new_query))
+        app.config['SQLALCHEMY_DATABASE_URI'] = final_url
+        logger.info('🔒 SSL configurado de forma robusta para `require`')
         logger.info(f'📊 DATABASE_URI final: {database_url[:80]}...')
         
         # Configurações específicas do engine para Render PostgreSQL
@@ -101,31 +111,10 @@ def create_app():
             logger.info(f'📊 Versão do PostgreSQL: {version_info[:100]}...')
             
     except Exception as e:
-        logger.error(f'Erro ao inicializar SQLAlchemy: {str(e)}')
-        logger.error(f'Tipo do erro: {type(e).__name__}')
-        
-        # Fallback simples: tentar sem SSL se falhar
-        if database_url and 'sslmode=require' in database_url:
-            logger.info('🔄 Tentando fallback SSL para sslmode=prefer...')
-            
-            # Fallback: sslmode=prefer
-            database_url_fallback = database_url.replace('sslmode=require', 'sslmode=prefer')
-            app.config['SQLALCHEMY_DATABASE_URI'] = database_url_fallback
-            logger.info(f'📊 DATABASE_URI fallback: {database_url_fallback[:80]}...')
-            
-            try:
-                db = SQLAlchemy(app)
-                with app.app_context():
-                    from sqlalchemy import text
-                    result = db.session.execute(text('SELECT version()'))
-                    version_info = result.fetchone()[0] if result.rowcount > 0 else 'N/A'
-                    logger.info(f'✅ Fallback SSL aplicado com sucesso')
-                    logger.info(f'📊 Versão do PostgreSQL: {version_info[:100]}...')
-            except Exception as fallback_error:
-                logger.error(f'❌ Erro no fallback: {str(fallback_error)}')
-                raise fallback_error
-        else:
-            raise e
+        logger.error(f'❌ Erro fatal ao inicializar SQLAlchemy: {str(e)}')
+        logger.error(f'Traceback: {traceback.format_exc()}')
+        # Não há fallback, o erro é fatal para a inicialização.
+        raise e
     
     # Modelo de usuário simples
     class User(db.Model):
