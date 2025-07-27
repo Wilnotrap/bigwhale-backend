@@ -47,13 +47,13 @@ def create_app():
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
         
-        # Adicionar parâmetros SSL para PostgreSQL no Render
+        # Configurações SSL específicas para PostgreSQL no Render
         if 'sslmode' not in database_url:
             separator = '&' if '?' in database_url else '?'
-            database_url += f'{separator}sslmode=require'
+            database_url += f'{separator}sslmode=require&sslcert=&sslkey=&sslrootcert='
         
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-        logger.info('Usando PostgreSQL (Render)')
+        logger.info(f'Usando PostgreSQL (Render): {database_url[:50]}...')
     else:
         # SQLite para desenvolvimento local
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///bigwhale.db'
@@ -63,6 +63,12 @@ def create_app():
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_pre_ping': True,
         'pool_recycle': 300,
+        'connect_args': {
+            'sslmode': 'require',
+            'sslcert': None,
+            'sslkey': None,
+            'sslrootcert': None
+        } if database_url else {}
     }
     
     # Inicializar SQLAlchemy
