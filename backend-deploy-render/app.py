@@ -52,36 +52,44 @@ def create_app():
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
             logger.info('✅ URL corrigida de postgres:// para postgresql://')
         
-        # SOLUÇÃO DEFINITIVA: Configuração SSL específica para Render
+        # SOLUÇÃO DEFINITIVA SSL: Configuração robusta para Render PostgreSQL
         try:
             import psycopg2
             import ssl
-            logger.info(f"🐍 Versão do psycopg2: {psycopg2.__version__}")
-            logger.info(f"🔒 Versão do OpenSSL usada pelo Python: {ssl.OPENSSL_VERSION}")
+            logger.info(f"🐍 Versão do psycopg2-binary: {psycopg2.__version__}")
+            logger.info(f"🔒 Versão do OpenSSL: {ssl.OPENSSL_VERSION}")
         except Exception as e:
-            logger.warning(f"⚠️ Não foi possível importar psycopg2/ssl para logging: {e}")
+            logger.warning(f"⚠️ Erro ao importar psycopg2/ssl: {e}")
 
-        # Adicionar parâmetros SSL diretamente na URL
+        # Configuração SSL robusta para Render
         if '?' in database_url:
-            database_url += '&sslmode=require&sslcert=&sslkey=&sslrootcert='
+            database_url += '&sslmode=require&sslcert=&sslkey=&sslrootcert=&sslcrl=&sslcompression=0'
         else:
-            database_url += '?sslmode=require&sslcert=&sslkey=&sslrootcert='
+            database_url += '?sslmode=require&sslcert=&sslkey=&sslrootcert=&sslcrl=&sslcompression=0'
         
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
             'pool_recycle': 300,
-            'pool_timeout': 20,
-            'pool_size': 10,
-            'max_overflow': 20,
+            'pool_timeout': 30,
+            'pool_size': 5,
+            'max_overflow': 10,
             'connect_args': {
                 'sslmode': 'require',
-                'connect_timeout': 30,
-                'application_name': 'bigwhale_render_app'
+                'sslcert': '',
+                'sslkey': '',
+                'sslrootcert': '',
+                'sslcrl': '',
+                'sslcompression': '0',
+                'connect_timeout': 60,
+                'application_name': 'bigwhale_render_ssl',
+                'options': '-c default_transaction_isolation=read_committed'
             }
         }
-        logger.info('🔒 SSL configurado com parâmetros na URL e connect_args otimizados para Render')
-        logger.info(f'📊 DATABASE_URI final: {database_url[:80]}...')
+        
+        logger.info('🔒 SSL RENDER configurado: psycopg2-binary + parâmetros SSL robustos')
+        logger.info(f'📊 DATABASE_URI final: {database_url[:100]}...')
+        logger.info(f'⚙️ Engine options: pool_size=5, timeout=30s, keepalives ativados')
     else:
         # SQLite para desenvolvimento local
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///bigwhale.db'
@@ -105,18 +113,53 @@ def create_app():
         db = SQLAlchemy(app)
         logger.info('✅ SQLAlchemy inicializado com sucesso')
         
-        # Testar conexão imediatamente
+        # Testar conexão com retry e logging detalhado
         with app.app_context():
-            from sqlalchemy import text
-            result = db.session.execute(text('SELECT version()'))
-            version_info = result.fetchone()[0] if result.rowcount > 0 else 'N/A'
-            logger.info(f'✅ Teste de conexão realizado com sucesso')
-            logger.info(f'📊 Versão do PostgreSQL: {version_info[:100]}...')
+            import time
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    from sqlalchemy import text
+                    logger.info(f'🔄 Tentativa {attempt + 1}/{max_retries} de conexão com PostgreSQL...')
+                    
+                    result = db.session.execute(text('SELECT version()'))
+                    version_info = result.fetchone()[0] if result.rowcount > 0 else 'N/A'
+                    
+                    # Teste adicional de SSL
+                    ssl_result = db.session.execute(text('SHOW ssl'))
+                    ssl_status = ssl_result.fetchone()[0] if ssl_result.rowcount > 0 else 'unknown'
+                    
+                    logger.info(f'✅ Conexão PostgreSQL estabelecida com sucesso!')
+                    logger.info(f'📊 Versão: {version_info[:100]}...')
+                    logger.info(f'🔒 SSL Status: {ssl_status}')
+                    break
+                    
+                except Exception as conn_error:
+                    logger.error(f'❌ Tentativa {attempt + 1} falhou: {str(conn_error)}')
+                    if 'SSL' in str(conn_error):
+                        logger.error('🔒 ERRO SSL DETECTADO - Verificando configurações...')
+                        logger.error(f'🔍 DATABASE_URL: {app.config["SQLALCHEMY_DATABASE_URI"][:150]}...')
+                        logger.error(f'🔍 ENGINE_OPTIONS: {app.config["SQLALCHEMY_ENGINE_OPTIONS"]}')
+                    
+                    if attempt == max_retries - 1:
+                        raise conn_error
+                    
+                    time.sleep(2 ** attempt)  # Backoff exponencial
             
     except Exception as e:
-        logger.error(f'❌ Erro fatal ao inicializar SQLAlchemy: {str(e)}')
-        logger.error(f'Traceback: {traceback.format_exc()}')
-        # Não há fallback, o erro é fatal para a inicialização.
+        logger.error(f'❌ ERRO FATAL na inicialização do banco de dados')
+        logger.error(f'🔍 Tipo do erro: {type(e).__name__}')
+        logger.error(f'📝 Mensagem: {str(e)}')
+        logger.error(f'📋 Traceback completo:')
+        logger.error(traceback.format_exc())
+        
+        # Log adicional para erros SSL
+        if 'SSL' in str(e) or 'ssl' in str(e).lower():
+            logger.error('🚨 DIAGNÓSTICO SSL:')
+            logger.error(f'   - psycopg2-binary instalado: Sim')
+            logger.error(f'   - URL contém sslmode=require: {"sslmode=require" in app.config.get("SQLALCHEMY_DATABASE_URI", "")}')
+            logger.error(f'   - connect_args SSL: {app.config.get("SQLALCHEMY_ENGINE_OPTIONS", {}).get("connect_args", {})}')
+        
         raise e
     
     # Modelo de usuário simples
