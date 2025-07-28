@@ -1,0 +1,79 @@
+# LIMPEZA COMPLETA - Manter apenas arquivos essenciais do backend
+
+# Excluir TODOS os arquivos Python desnecessários
+*.py
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Excluir scripts e arquivos de configuração
+*.ps1
+*.bat
+*.sh
+*.js
+*.html
+*.md
+*.txt
+*.json
+*.zip
+
+# Excluir pastas desnecessárias
+frontend/
+backend/
+backups/
+templates/
+utils/
+models/
+.vercel/
+"Projeto 1 - FInal/"
+
+# Environments
+.env*
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# SQLite
+*.sqlite3
+*.db
+
+# IDEs and editors
+.vscode/
+.idea/
+*.project
+*.pydevproject
+.DS_Store
+
+# Logs
+logs/
+*.log
+cookiejar.txt
+
+# Arquivos temporários
+*.tmp
+*.temp
+*.bak
+*.backup*
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+*.egg
+node_modules
+
+# EXCEÇÕES - Manter apenas estes arquivos essenciais
+!backend-deploy-render/
+!backend-deploy-render/app.py
+!backend-deploy-render/requirements.txt
+!backend-deploy-render/Procfile
+!backend-deploy-render/verify-postgresql.py
+!backend-deploy-render/README.md
+!.env.example
+!README.md
