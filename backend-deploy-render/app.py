@@ -52,34 +52,26 @@ def create_app():
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
             logger.info('✅ URL corrigida de postgres:// para postgresql://')
         
-        # Solução robusta para SSL com urllib.parse (Restaurada)
-        from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
-        
-        parsed_url = urlparse(database_url)
-        query_params = parse_qs(parsed_url.query)
-        query_params['sslmode'] = ['require'] # Garante que sslmode=require
-        
-        # Remove outros parâmetros SSL conflitantes que possam existir
-        for key in ['sslrootcert', 'sslcert', 'sslkey']:
-            query_params.pop(key, None)
+        # Solução 4: Forçar TLSv1.2 e adicionar logs de SSL
+        try:
+            import psycopg2
+            import ssl
+            logger.info(f"🐍 Versão do psycopg2: {psycopg2.__version__}")
+            logger.info(f"🔒 Versão do OpenSSL usada pelo Python: {ssl.OPENSSL_VERSION}")
+        except Exception as e:
+            logger.warning(f"⚠️ Não foi possível importar psycopg2/ssl para logging: {e}")
 
-        new_query = urlencode(query_params, doseq=True)
-        
-        # Recria a URL com o sslmode correto
-        final_url = urlunparse(parsed_url._replace(query=new_query))
-        app.config['SQLALCHEMY_DATABASE_URI'] = final_url
-        logger.info('🔒 SSL configurado de forma robusta para `require` (versão restaurada)')
-        logger.info(f'📊 DATABASE_URI final: {final_url[:80]}...')
-        
-        # Restaurando configurações específicas do engine para Render PostgreSQL
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
             'pool_recycle': 300,
-            'pool_timeout': 20,
-            'pool_size': 5,
-            'max_overflow': 10
+            'connect_args': {
+                'sslmode': 'require',
+                'sslversion': 'TLSv1.2' # Forçando a versão do TLS
+            }
         }
-        logger.info('✅ Configurações de engine do SQLAlchemy restauradas.')
+        logger.info('🔒 SSL configurado via `connect_args` com `sslmode=require` e forçando `TLSv1.2`.')
+        logger.info(f'📊 DATABASE_URI: {database_url[:80]}...')
     else:
         # SQLite para desenvolvimento local
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///bigwhale.db'
