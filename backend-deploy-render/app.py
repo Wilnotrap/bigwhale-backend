@@ -52,7 +52,7 @@ def create_app():
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
             logger.info('✅ URL corrigida de postgres:// para postgresql://')
         
-        # Solução 4: Forçar TLSv1.2 e adicionar logs de SSL
+        # SOLUÇÃO DEFINITIVA: Configuração SSL específica para Render
         try:
             import psycopg2
             import ssl
@@ -61,17 +61,27 @@ def create_app():
         except Exception as e:
             logger.warning(f"⚠️ Não foi possível importar psycopg2/ssl para logging: {e}")
 
+        # Adicionar parâmetros SSL diretamente na URL
+        if '?' in database_url:
+            database_url += '&sslmode=require&sslcert=&sslkey=&sslrootcert='
+        else:
+            database_url += '?sslmode=require&sslcert=&sslkey=&sslrootcert='
+        
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
         app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
             'pool_pre_ping': True,
             'pool_recycle': 300,
+            'pool_timeout': 20,
+            'pool_size': 10,
+            'max_overflow': 20,
             'connect_args': {
                 'sslmode': 'require',
-                'sslversion': 'TLSv1.2' # Forçando a versão do TLS
+                'connect_timeout': 30,
+                'application_name': 'bigwhale_render_app'
             }
         }
-        logger.info('🔒 SSL configurado via `connect_args` com `sslmode=require` e forçando `TLSv1.2`.')
-        logger.info(f'📊 DATABASE_URI: {database_url[:80]}...')
+        logger.info('🔒 SSL configurado com parâmetros na URL e connect_args otimizados para Render')
+        logger.info(f'📊 DATABASE_URI final: {database_url[:80]}...')
     else:
         # SQLite para desenvolvimento local
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///bigwhale.db'
